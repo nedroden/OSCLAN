@@ -57,6 +57,7 @@ const (
 	Number
 	String
 	Impl
+	Struct
 )
 
 var tokenStringMapping = map[TokenType]string{
@@ -77,6 +78,7 @@ var tokenStringMapping = map[TokenType]string{
 	Number:      "Number",
 	String:      "String",
 	Impl:        "Impl",
+	Struct:      "Struct",
 }
 
 func TokenTypeToString(tokenType TokenType) string {
@@ -236,6 +238,12 @@ func (t *Tokenizer) GetTokens() ([]Token, error) {
 			}
 
 			tokens = append(tokens, token)
+			continue
+		}
+
+		if t.IsAtSequence("struct") {
+			tokens = append(tokens, Token{Type: Struct, Position: t.Position})
+			t.AdvanceSequence("struct")
 			continue
 		}
 

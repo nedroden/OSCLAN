@@ -19,7 +19,9 @@ const (
 	Directive
 	DirArgument
 	Modifier
+	Structure
 	Function
+	Type
 )
 
 var nodeStringMapping = map[AstNodeType]string{
@@ -28,6 +30,8 @@ var nodeStringMapping = map[AstNodeType]string{
 	DirArgument: "DirArgument",
 	Modifier:    "Modifier",
 	Function:    "Function",
+	Structure:   "Structure",
+	Type:        "Type",
 }
 
 func AstNodeTypeToString(nodeType AstNodeType) string {
@@ -39,9 +43,10 @@ func AstNodeTypeToString(nodeType AstNodeType) string {
 }
 
 type AstTreeNode struct {
-	Children []AstTreeNode
-	Type     AstNodeType
-	Value    string
+	Children  []AstTreeNode
+	Type      AstNodeType
+	Value     string
+	ValueType string
 }
 
 func (n AstTreeNode) ToString() string {
@@ -77,7 +82,7 @@ func (p *Parser) Consume(tokenType TokenType) (Token, error) {
 		p.CurrentToken = p.Tokens[p.CurrentTokenIndex]
 	}
 
-	fmt.Printf("-> Consumed token of type '%s' with value '%s'\n", TokenTypeToString(p.CurrentToken.Type), p.CurrentToken.Value)
+	fmt.Printf("-> Consumed token of type '%s' with value '%s'\n", TokenTypeToString(oldToken.Type), oldToken.Value)
 
 	return oldToken, nil
 }
@@ -149,16 +154,92 @@ func (p *Parser) ParseFunction(parent *AstTreeNode) (*AstTreeNode, error) {
 		return &AstTreeNode{}, err
 	}
 
-	functionNode := AstTreeNode{
+	blockNode := AstTreeNode{
 		Type:     Function,
 		Children: []AstTreeNode{{Type: Modifier, Value: visibility}},
 	}
 
-	if _, err = p.Consume(Impl); err != nil {
+	switch p.CurrentToken.Type {
+	case Impl:
+		if _, err = p.Consume(Impl); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		var returnType Token
+
+		if returnType, err = p.Consume(Identifier); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		blockNode.ValueType = returnType.Value
+	case Struct:
+		if _, err := p.Consume(Struct); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		var functionNameToken Token
+		if functionNameToken, err = p.Consume(Identifier); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		blockNode.Value = functionNameToken.Value
+
+		p.ParseStruct(&blockNode)
+	default:
+		return &AstTreeNode{}, fmt.Errorf("expected 'impl' or 'struct' token, but got '%s'", TokenTypeToString(p.Lookahead()))
+	}
+
+	parent.Children = append(parent.Children, blockNode)
+
+	if _, err = p.Consume(Lbrace); err != nil {
 		return &AstTreeNode{}, err
 	}
 
-	return &functionNode, nil
+	p.ParseCompound(parent)
+
+	if _, err = p.Consume(Rbrace); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	return parent, nil
+}
+
+func (p *Parser) ParseStruct(parent *AstTreeNode) (*AstTreeNode, error) {
+
+	return &AstTreeNode{}, nil
+}
+
+func (p *Parser) ParseCompound(parent *AstTreeNode) (*AstTreeNode, error) {
+
+	return &AstTreeNode{}, nil
+}
+
+// TODO: finish
+func (p *Parser) ParseType(parent *AstTreeNode) (*AstTreeNode, error) {
+	node := AstTreeNode{
+		Type: Type,
+	}
+
+	var err error
+	var token Token
+
+	if token, err = p.Consume(Identifier); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	node.Value = token.Value
+
+	if p.Lookahead() == Lt {
+		p.ParseType(&node)
+
+		if _, err := p.Consume(Gt); err != nil {
+			return &AstTreeNode{}, err
+		}
+	}
+
+	parent.Children = append(parent.Children, node)
+
+	return parent, nil
 }
 
 func (p *Parser) GenerateAst() (AstTreeNode, error) {
