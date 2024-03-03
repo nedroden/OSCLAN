@@ -1,7 +1,7 @@
-.module Main
+.module "Main"
 
-.import System
-.import System.Collections.Generic
+.import "System"
+.import "System.Collections.Generic"
 
 + struct Vector<T> {
     List<T> children

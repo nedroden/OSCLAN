@@ -18,12 +18,16 @@ const (
 	Root AstNodeType = iota
 	Directive
 	DirArgument
+	Modifier
+	Function
 )
 
 var nodeStringMapping = map[AstNodeType]string{
 	Root:        "Root",
 	Directive:   "Directive",
 	DirArgument: "DirArgument",
+	Modifier:    "Modifier",
+	Function:    "Function",
 }
 
 func AstNodeTypeToString(nodeType AstNodeType) string {
@@ -103,7 +107,7 @@ func (p *Parser) ParseDirective(parent *AstTreeNode) (*AstTreeNode, error) {
 
 	switch token.Value {
 	case "module":
-		argument, err = p.Consume(Identifier)
+		argument, err = p.Consume(String)
 
 		if err != nil {
 			return parent, err
@@ -112,7 +116,13 @@ func (p *Parser) ParseDirective(parent *AstTreeNode) (*AstTreeNode, error) {
 		parent.Children = append(parent.Children, AstTreeNode{Type: DirArgument, Value: argument.Value})
 
 	case "import":
-		_, _ = p.Consume(Identifier)
+		argument, err = p.Consume(String)
+
+		if err != nil {
+			return parent, err
+		}
+
+		parent.Children = append(parent.Children, AstTreeNode{Type: DirArgument, Value: argument.Value})
 
 	default:
 		return parent, fmt.Errorf("invalid directive '%s'", token.Value)
@@ -121,6 +131,34 @@ func (p *Parser) ParseDirective(parent *AstTreeNode) (*AstTreeNode, error) {
 	parent.Children = append(parent.Children, directive)
 
 	return parent, nil
+}
+
+func (p *Parser) ParseFunction(parent *AstTreeNode) (*AstTreeNode, error) {
+	var err error
+	var visibility string
+
+	if p.CurrentToken.Type == Minus {
+		_, err = p.Consume(Minus)
+		visibility = "private"
+	} else {
+		_, err = p.Consume(Plus)
+		visibility = "public"
+	}
+
+	if err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	functionNode := AstTreeNode{
+		Type:     Function,
+		Children: []AstTreeNode{{Type: Modifier, Value: visibility}},
+	}
+
+	if _, err = p.Consume(Impl); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	return &functionNode, nil
 }
 
 func (p *Parser) GenerateAst() (AstTreeNode, error) {
@@ -134,8 +172,16 @@ func (p *Parser) GenerateAst() (AstTreeNode, error) {
 			if err != nil {
 				return rootNode, err
 			}
+		case Plus:
+			if _, err := p.ParseFunction(&rootNode); err != nil {
+				return rootNode, err
+			}
+		case Minus:
+			if _, err := p.ParseFunction(&rootNode); err != nil {
+				return rootNode, err
+			}
 		default:
-			return AstTreeNode{}, fmt.Errorf("token of type '%s' is missing an implementation", TokenTypeToString(p.CurrentToken.Type))
+			return AstTreeNode{}, fmt.Errorf("token of type '%s' is missing an implementation (at root level)", TokenTypeToString(p.CurrentToken.Type))
 		}
 	}
 

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -54,6 +55,8 @@ const (
 	Rparen
 	Equals
 	Number
+	String
+	Impl
 )
 
 var tokenStringMapping = map[TokenType]string{
@@ -72,6 +75,8 @@ var tokenStringMapping = map[TokenType]string{
 	Rparen:      "Rparen",
 	Equals:      "Equals",
 	Number:      "Number",
+	String:      "String",
+	Impl:        "Impl",
 }
 
 func TokenTypeToString(tokenType TokenType) string {
@@ -167,7 +172,7 @@ func (t *Tokenizer) TokenizeIdentifier() Token {
 	return Token{Type: Identifier, Value: sb.String(), Position: originalPosition}
 }
 
-func (t *Tokenizer) TokenizerNumber() Token {
+func (t *Tokenizer) TokenizeNumber() Token {
 	originalPosition := t.Position
 	var sb strings.Builder
 
@@ -179,11 +184,32 @@ func (t *Tokenizer) TokenizerNumber() Token {
 	return Token{Type: Number, Value: sb.String(), Position: originalPosition}
 }
 
+func (t *Tokenizer) TokenizeString() (Token, error) {
+	originalPosition := t.Position
+	var sb strings.Builder
+
+	t.Advance()
+
+	for !t.IsAtEof() && t.CurrentChar != '"' {
+		sb.WriteRune(t.CurrentChar)
+		t.Advance()
+	}
+
+	if t.CurrentChar != '"' {
+		return Token{}, errors.New("string literal not terminated")
+	}
+
+	t.Advance()
+
+	return Token{Type: String, Value: sb.String(), Position: originalPosition}, nil
+}
+
 func (t *Tokenizer) GetTokens() ([]Token, error) {
 	var tokens []Token
 
 	for !t.IsAtEof() {
 		var token Token
+		var err error
 
 		if t.IsAtEol() {
 			t.Position.Line++
@@ -202,6 +228,23 @@ func (t *Tokenizer) GetTokens() ([]Token, error) {
 			continue
 		}
 
+		if t.CurrentChar == '"' {
+			token, err = t.TokenizeString()
+
+			if err != nil {
+				return []Token{}, err
+			}
+
+			tokens = append(tokens, token)
+			continue
+		}
+
+		if t.IsAtSequence("impl") {
+			tokens = append(tokens, Token{Type: Impl, Position: t.Position})
+			t.AdvanceSequence("impl")
+			continue
+		}
+
 		if unicode.IsLetter(t.CurrentChar) {
 			token = t.TokenizeIdentifier()
 			tokens = append(tokens, token)
@@ -209,7 +252,7 @@ func (t *Tokenizer) GetTokens() ([]Token, error) {
 		}
 
 		if unicode.IsDigit(t.CurrentChar) {
-			token = t.TokenizerNumber()
+			token = t.TokenizeNumber()
 			tokens = append(tokens, token)
 			continue
 		}
