@@ -214,7 +214,6 @@ func (p *Parser) ParseCompound(parent *AstTreeNode) (*AstTreeNode, error) {
 	return &AstTreeNode{}, nil
 }
 
-// TODO: finish
 func (p *Parser) ParseType(parent *AstTreeNode) (*AstTreeNode, error) {
 	node := AstTreeNode{
 		Type: Type,
@@ -229,7 +228,11 @@ func (p *Parser) ParseType(parent *AstTreeNode) (*AstTreeNode, error) {
 
 	node.Value = token.Value
 
-	if p.Lookahead() == Lt {
+	if p.CurrentToken.Type != EOF && p.CurrentToken.Type == Lt {
+		if _, err := p.Consume(Lt); err != nil {
+			return &AstTreeNode{}, err
+		}
+
 		p.ParseType(&node)
 
 		if _, err := p.Consume(Gt); err != nil {
