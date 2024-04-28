@@ -172,6 +172,21 @@ func (p *Parser) ParseFunction(parent *AstTreeNode) (*AstTreeNode, error) {
 		}
 
 		blockNode.ValueType = returnType.Value
+
+		baseType := AstTreeNode{Type: Type}
+		p.ParseType(&baseType)
+		blockNode.Children = append(blockNode.Children, baseType)
+
+		if _, err = p.Consume(DoubleColon); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		var functionNameToken Token
+		if functionNameToken, err = p.Consume(Identifier); err != nil {
+			return &AstTreeNode{}, err
+		}
+		blockNode.Value = functionNameToken.Value
+
 	case Struct:
 		if _, err := p.Consume(Struct); err != nil {
 			return &AstTreeNode{}, err
@@ -228,11 +243,7 @@ func (p *Parser) ParseType(parent *AstTreeNode) (*AstTreeNode, error) {
 
 	node.Value = token.Value
 
-	if p.CurrentToken.Type != EOF && p.CurrentToken.Type == Lt {
-		if _, err := p.Consume(Lt); err != nil {
-			return &AstTreeNode{}, err
-		}
-
+	if p.CurrentToken.Type == Lt {
 		p.ParseType(&node)
 
 		if _, err := p.Consume(Gt); err != nil {
