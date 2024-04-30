@@ -41,7 +41,6 @@ type TokenType int64
 
 const (
 	EOF TokenType = iota
-	EOL
 	Plus
 	Minus
 	Dot
@@ -62,7 +61,6 @@ const (
 
 var tokenStringMapping = map[TokenType]string{
 	EOF:         "EOF",
-	EOL:         "EOL",
 	Plus:        "Plus",
 	Minus:       "Minus",
 	Dot:         "Dot",

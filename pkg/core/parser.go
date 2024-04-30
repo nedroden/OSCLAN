@@ -52,12 +52,16 @@ type AstTreeNode struct {
 }
 
 func (n AstTreeNode) ToString() string {
+	return n.ToStringWithIndentation(1)
+}
+
+func (n AstTreeNode) ToStringWithIndentation(level int) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("<AstNode Type='%s' Value='%s' />", AstNodeTypeToString(n.Type), n.Value))
+	sb.WriteString(fmt.Sprintf("<AstNode Type='%s' Value='%s' />\n", AstNodeTypeToString(n.Type), n.Value))
 
 	for _, child := range n.Children {
-		sb.WriteString(fmt.Sprintf("\t%s\n", child.ToString()))
+		sb.WriteString(fmt.Sprintf("%s%s", strings.Repeat("\t", level), child.ToStringWithIndentation(level+1)))
 	}
 
 	return sb.String()
@@ -120,7 +124,7 @@ func (p *Parser) ParseDirective(parent *AstTreeNode) (*AstTreeNode, error) {
 			return parent, err
 		}
 
-		parent.Children = append(parent.Children, AstTreeNode{Type: DirArgument, Value: argument.Value})
+		directive.Children = append(directive.Children, AstTreeNode{Type: DirArgument, Value: argument.Value})
 
 	case "import":
 		argument, err = p.Consume(String)
@@ -129,7 +133,7 @@ func (p *Parser) ParseDirective(parent *AstTreeNode) (*AstTreeNode, error) {
 			return parent, err
 		}
 
-		parent.Children = append(parent.Children, AstTreeNode{Type: DirArgument, Value: argument.Value})
+		directive.Children = append(directive.Children, AstTreeNode{Type: DirArgument, Value: argument.Value})
 
 	default:
 		return parent, fmt.Errorf("invalid directive '%s'", token.Value)
@@ -184,13 +188,13 @@ func (p *Parser) ParseImplementationBlock(parent *AstTreeNode, visibility string
 	}
 
 	var returnType Token
-
 	if returnType, err = p.Consume(Identifier); err != nil {
 		return &AstTreeNode{}, err
 	}
 
 	blockNode.ValueType = returnType.Value
 
+	// Base type, i.e. the class name
 	baseType := AstTreeNode{Type: Type}
 	p.ParseType(&baseType)
 	blockNode.Children = append(blockNode.Children, baseType)
@@ -199,15 +203,25 @@ func (p *Parser) ParseImplementationBlock(parent *AstTreeNode, visibility string
 		return &AstTreeNode{}, err
 	}
 
+	// Implementation name
 	var functionNameToken Token
 	if functionNameToken, err = p.Consume(Identifier); err != nil {
 		return &AstTreeNode{}, err
 	}
 
 	blockNode.Value = functionNameToken.Value
-
 	parent.Children = append(parent.Children, *blockNode)
 
+	// Arguments
+	if _, err = p.Consume(Lparen); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	if _, err = p.Consume(Rparen); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	// Body
 	if _, err = p.Consume(Lbrace); err != nil {
 		return &AstTreeNode{}, err
 	}
@@ -236,15 +250,13 @@ func (p *Parser) ParseStruct(parent *AstTreeNode, visibility string) (*AstTreeNo
 	// The type of a struct is also its name
 	p.ParseType(structNode)
 
-	parent.Children = append(parent.Children, *structNode)
-
 	if _, err = p.Consume(Lbrace); err != nil {
 		return &AstTreeNode{}, err
 	}
 
 	for p.CurrentToken.Type != EOF && p.CurrentToken.Type != Rbrace {
-		field := &AstTreeNode{Type: Field}
-		p.ParseType(field)
+		field := AstTreeNode{Type: Field}
+		p.ParseType(&field)
 
 		var identifier Token
 
@@ -253,11 +265,14 @@ func (p *Parser) ParseStruct(parent *AstTreeNode, visibility string) (*AstTreeNo
 		}
 
 		field.Value = identifier.Value
+		structNode.Children = append(structNode.Children, field)
 	}
 
 	if _, err = p.Consume(Rbrace); err != nil {
 		return &AstTreeNode{}, err
 	}
+
+	parent.Children = append(parent.Children, *structNode)
 
 	return parent, nil
 }
@@ -315,6 +330,8 @@ func (p *Parser) GenerateAst() (AstTreeNode, error) {
 				return rootNode, err
 			}
 		default:
+			// For debug purposes
+			fmt.Println(rootNode.ToString())
 			return AstTreeNode{}, fmt.Errorf("token of type '%s' is missing an implementation (at root level)", TokenTypeToString(p.CurrentToken.Type))
 		}
 	}
