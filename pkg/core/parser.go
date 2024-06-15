@@ -23,17 +23,19 @@ const (
 	Function
 	Type
 	Field
+	ImplArgument
 )
 
 var nodeStringMapping = map[AstNodeType]string{
-	Root:        "Root",
-	Directive:   "Directive",
-	DirArgument: "DirArgument",
-	Modifier:    "Modifier",
-	Function:    "Function",
-	Structure:   "Structure",
-	Type:        "Type",
-	Field:       "Field",
+	Root:         "Root",
+	Directive:    "Directive",
+	DirArgument:  "DirArgument",
+	Modifier:     "Modifier",
+	Function:     "Function",
+	Structure:    "Structure",
+	Type:         "Type",
+	Field:        "Field",
+	ImplArgument: "ImplArgument",
 }
 
 func AstNodeTypeToString(nodeType AstNodeType) string {
@@ -175,7 +177,6 @@ func (p *Parser) ParseBlock(parent *AstTreeNode) (*AstTreeNode, error) {
 	return parent, nil
 }
 
-// TODO: Finish
 func (p *Parser) ParseImplementationBlock(parent *AstTreeNode, visibility string) (*AstTreeNode, error) {
 	var err error
 	blockNode := &AstTreeNode{
@@ -212,12 +213,7 @@ func (p *Parser) ParseImplementationBlock(parent *AstTreeNode, visibility string
 	blockNode.Value = functionNameToken.Value
 	parent.Children = append(parent.Children, *blockNode)
 
-	// Arguments
-	if _, err = p.Consume(Lparen); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	if _, err = p.Consume(Rparen); err != nil {
+	if _, err = p.ParseArguments(blockNode); err != nil {
 		return &AstTreeNode{}, err
 	}
 
@@ -280,6 +276,46 @@ func (p *Parser) ParseStruct(parent *AstTreeNode, visibility string) (*AstTreeNo
 func (p *Parser) ParseCompound(parent *AstTreeNode) (*AstTreeNode, error) {
 
 	return &AstTreeNode{}, nil
+}
+
+func (p *Parser) ParseArguments(parent *AstTreeNode) (*AstTreeNode, error) {
+	var err error
+
+	if _, err = p.Consume(Lparen); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	if p.CurrentToken.Type == Rparen {
+		p.Consume(Rparen)
+
+		return parent, nil
+	}
+
+	for p.CurrentToken.Type != EOF && p.CurrentToken.Type != Rparen {
+		argument := AstTreeNode{Type: ImplArgument}
+		p.ParseType(&argument)
+
+		var identifier Token
+
+		if identifier, err = p.Consume(Identifier); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		argument.Value = identifier.Value
+		parent.Children = append(parent.Children, argument)
+
+		if p.CurrentToken.Type == Comma {
+			if _, err = p.Consume(Comma); err != nil {
+				return &AstTreeNode{}, err
+			}
+		}
+	}
+
+	if _, err = p.Consume(Rparen); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	return parent, nil
 }
 
 func (p *Parser) ParseType(parent *AstTreeNode) (*AstTreeNode, error) {

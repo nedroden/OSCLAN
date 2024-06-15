@@ -57,6 +57,7 @@ const (
 	String
 	Impl
 	Struct
+	Comma
 )
 
 var tokenStringMapping = map[TokenType]string{
@@ -77,6 +78,7 @@ var tokenStringMapping = map[TokenType]string{
 	String:      "String",
 	Impl:        "Impl",
 	Struct:      "Struct",
+	Comma:       "Comma",
 }
 
 func TokenTypeToString(tokenType TokenType) string {
@@ -291,6 +293,8 @@ func (t *Tokenizer) GetTokens() ([]Token, error) {
 				tokens = append(tokens, Token{Type: Rparen, Position: t.Position})
 			case '=':
 				tokens = append(tokens, Token{Type: Equals, Position: t.Position})
+			case ',':
+				tokens = append(tokens, Token{Type: Comma, Position: t.Position})
 			default:
 				return []Token{}, fmt.Errorf("unexpected character '%c' encountered during tokenization process: %s", t.CurrentChar, t.Position.ToString())
 			}

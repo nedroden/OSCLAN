@@ -1,0 +1,48 @@
+// Hypothetical version of Nasgo that follows a stack-based approach
+//
+// It would have the following instructions:
+//
+// - pop:               Pop a single item from the stack
+// - push               Push a single item onto the stack
+// - flush              Flushes the stack
+// - assign             Assigns the second value on the stack to the item on top of the stack
+// - invoke             Invokes the item on top of the stack, with any remaining items on the stack as arguments
+
+.module "Main"
+
+.import "System"
+.import "System.Collections.Generic"
+
++ struct Vector<T> {
+    List<T> children
+    int     size
+}
+
++ impl void Vector<T>::construct()
+{
+    push    self->children
+    push    [List<int>::construct]
+    assign
+}
+
++ impl void Vector<T>::add_child(T child)
+{
+    push    child
+    push    self->children->append
+    invoke
+
+    push    self->size
+    push    1
+    add
+}
+
+- impl void Vector<T>::some_private_method()
+{
+    // do something here
+}
+
++ void Main()
+{
+    Vector<int> vector = Vector<int>::construct()
+    vector->add_child(1)
+}
