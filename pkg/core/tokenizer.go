@@ -40,45 +40,83 @@ type Tokenizer struct {
 type TokenType int64
 
 const (
-	EOF TokenType = iota
-	Plus
-	Minus
-	Dot
-	Identifier
-	Lbrace
-	Rbrace
-	DoubleColon
-	Lt
-	Gt
-	Lparen
-	Rparen
-	Equals
-	Number
-	String
-	Impl
-	Struct
-	Comma
+	ttEOF TokenType = iota
+	ttPlus
+	ttMinus
+	ttDot
+	ttIdentifier
+	ttString
+	ttNumber
+	ttDeclare
+	ttModifier
+	ttStruct
+	ttLbracket
+	ttRbracket
+	ttLparen
+	ttRparen
+	ttLt
+	ttGt
+	ttBegin
+	ttEnd
+	ttDoubleColon
+	ttColon
+	ttRet
+	ttIncrement
+	ttAnon
+	ttPrint
+	ttOk
+	ttIf
+	ttElse
+	ttThen
+	ttSpace
+	ttZero
+	ttComma
+	ttEq
+	ttNeq
+	ttAsterisk
+	ttTilde
+	ttCall
+	ttInit
 )
 
 var tokenStringMapping = map[TokenType]string{
-	EOF:         "EOF",
-	Plus:        "Plus",
-	Minus:       "Minus",
-	Dot:         "Dot",
-	Identifier:  "Identifier",
-	Lbrace:      "Lbrace",
-	Rbrace:      "Rbrace",
-	DoubleColon: "DoubleColon",
-	Lt:          "Lt",
-	Gt:          "Gt",
-	Lparen:      "Lparen",
-	Rparen:      "Rparen",
-	Equals:      "Equals",
-	Number:      "Number",
-	String:      "String",
-	Impl:        "Impl",
-	Struct:      "Struct",
-	Comma:       "Comma",
+	ttEOF:         "Eof",
+	ttPlus:        "Plus",
+	ttMinus:       "Minus",
+	ttDot:         "Dot",
+	ttIdentifier:  "Identifier",
+	ttString:      "String",
+	ttNumber:      "Number",
+	ttDeclare:     "Declare",
+	ttModifier:    "Modifier",
+	ttStruct:      "Struct",
+	ttLbracket:    "Lbracket",
+	ttRbracket:    "Rbracket",
+	ttLparen:      "Lparen",
+	ttRparen:      "Rparen",
+	ttLt:          "Lt",
+	ttGt:          "Gt",
+	ttBegin:       "Begin",
+	ttEnd:         "End",
+	ttDoubleColon: "DoubleColon",
+	ttColon:       "Colon",
+	ttRet:         "Ret",
+	ttIncrement:   "Increment",
+	ttAnon:        "Anon",
+	ttPrint:       "Print",
+	ttOk:          "Ok",
+	ttIf:          "If",
+	ttElse:        "Else",
+	ttThen:        "Then",
+	ttSpace:       "Space",
+	ttZero:        "Zero",
+	ttComma:       "Comma",
+	ttEq:          "Eq",
+	ttNeq:         "Neq",
+	ttAsterisk:    "Asterisk",
+	ttTilde:       "Tilde",
+	ttCall:        "Call",
+	ttInit:        "Init",
 }
 
 func TokenTypeToString(tokenType TokenType) string {
@@ -87,6 +125,20 @@ func TokenTypeToString(tokenType TokenType) string {
 	}
 
 	return "Unknown"
+}
+
+// TODO: sort based on usage statistics
+var sequences = map[string]Token{
+	"declare": {Type: ttDeclare},
+	"struct":  {Type: ttStruct},
+	"public":  {Type: ttModifier, Value: "public"},
+	"private": {Type: ttModifier, Value: "private"},
+	"end":     {Type: ttEnd},
+	"call":    {Type: ttCall},
+	"::":      {Type: ttDoubleColon},
+	"~=":      {Type: ttNeq},
+	"begin":   {Type: ttBegin},
+	"init":    {Type: ttInit},
 }
 
 func InitTokenizer(filename string, directory string) (*Tokenizer, error) {
@@ -142,7 +194,7 @@ func (t *Tokenizer) IsAtSequence(sequence string) bool {
 	}
 
 	for i, char := range sequence {
-		if char != t.Source[t.Position.Offset+i] {
+		if char != unicode.ToLower(t.Source[t.Position.Offset+i]) {
 			return false
 		}
 	}
@@ -165,13 +217,13 @@ func (t *Tokenizer) TokenizeIdentifier() Token {
 	originalPosition := t.Position
 	var sb strings.Builder
 
-	for unicode.IsLetter(t.CurrentChar) || unicode.IsDigit(t.CurrentChar) || t.CurrentChar == '_' {
+	for unicode.IsLetter(t.CurrentChar) || unicode.IsDigit(t.CurrentChar) || t.CurrentChar == '-' {
 		sb.WriteRune(t.CurrentChar)
 
 		t.Advance()
 	}
 
-	return Token{Type: Identifier, Value: sb.String(), Position: originalPosition}
+	return Token{Type: ttIdentifier, Value: sb.String(), Position: originalPosition}
 }
 
 func (t *Tokenizer) TokenizeNumber() Token {
@@ -183,7 +235,7 @@ func (t *Tokenizer) TokenizeNumber() Token {
 		t.Advance()
 	}
 
-	return Token{Type: Number, Value: sb.String(), Position: originalPosition}
+	return Token{Type: ttNumber, Value: sb.String(), Position: originalPosition}
 }
 
 func (t *Tokenizer) TokenizeString() (Token, error) {
@@ -203,7 +255,7 @@ func (t *Tokenizer) TokenizeString() (Token, error) {
 
 	t.Advance()
 
-	return Token{Type: String, Value: sb.String(), Position: originalPosition}, nil
+	return Token{Type: ttString, Value: sb.String(), Position: originalPosition}, nil
 }
 
 func (t *Tokenizer) GetTokens() ([]Token, error) {
@@ -220,7 +272,7 @@ func (t *Tokenizer) GetTokens() ([]Token, error) {
 			continue
 		}
 
-		if t.IsAtSequence("//") {
+		if t.IsAtSequence(".*") {
 			t.SkipComment()
 			continue
 		}
@@ -241,15 +293,17 @@ func (t *Tokenizer) GetTokens() ([]Token, error) {
 			continue
 		}
 
-		if t.IsAtSequence("struct") {
-			tokens = append(tokens, Token{Type: Struct, Position: t.Position})
-			t.AdvanceSequence("struct")
-			continue
+		for sequence, sequenceToken := range sequences {
+			if t.IsAtSequence(sequence) {
+				token = sequenceToken
+				token.Position = t.Position
+				tokens = append(tokens, token)
+				t.AdvanceSequence(sequence)
+				break
+			}
 		}
 
-		if t.IsAtSequence("impl") {
-			tokens = append(tokens, Token{Type: Impl, Position: t.Position})
-			t.AdvanceSequence("impl")
+		if token != (Token{}) {
 			continue
 		}
 
@@ -265,45 +319,37 @@ func (t *Tokenizer) GetTokens() ([]Token, error) {
 			continue
 		}
 
-		if t.IsAtSequence("::") {
-			tokens = append(tokens, Token{Type: DoubleColon, Position: t.Position})
-			t.AdvanceSequence("::")
-			continue
-		}
-
 		if token == (Token{}) {
-			switch t.CurrentChar {
-			case '.':
-				tokens = append(tokens, Token{Type: Dot, Position: t.Position})
-			case '+':
-				tokens = append(tokens, Token{Type: Plus, Position: t.Position})
-			case '-':
-				tokens = append(tokens, Token{Type: Minus, Position: t.Position})
-			case '{':
-				tokens = append(tokens, Token{Type: Lbrace, Position: t.Position})
-			case '}':
-				tokens = append(tokens, Token{Type: Rbrace, Position: t.Position})
-			case '<':
-				tokens = append(tokens, Token{Type: Lt, Position: t.Position})
-			case '>':
-				tokens = append(tokens, Token{Type: Gt, Position: t.Position})
-			case '(':
-				tokens = append(tokens, Token{Type: Lparen, Position: t.Position})
-			case ')':
-				tokens = append(tokens, Token{Type: Rparen, Position: t.Position})
-			case '=':
-				tokens = append(tokens, Token{Type: Equals, Position: t.Position})
-			case ',':
-				tokens = append(tokens, Token{Type: Comma, Position: t.Position})
-			default:
+			tokenTypes := map[rune]TokenType{
+				'.': ttDot,
+				'+': ttPlus,
+				'-': ttMinus,
+				'<': ttLt,
+				'>': ttGt,
+				'(': ttLparen,
+				')': ttRparen,
+				'[': ttLbracket,
+				']': ttRbracket,
+				'=': ttEq,
+				':': ttColon,
+				',': ttComma,
+				'*': ttAsterisk,
+				'~': ttTilde,
+			}
+
+			tokenType, ok := tokenTypes[t.CurrentChar]
+
+			if !ok {
 				return []Token{}, fmt.Errorf("unexpected character '%c' encountered during tokenization process: %s", t.CurrentChar, t.Position.ToString())
 			}
+
+			tokens = append(tokens, Token{Type: tokenType, Position: t.Position})
 		}
 
 		t.Advance()
 	}
 
-	tokens = append(tokens, Token{Position: t.Position, Type: EOF})
+	tokens = append(tokens, Token{Position: t.Position, Type: ttEOF})
 
 	return tokens, nil
 }

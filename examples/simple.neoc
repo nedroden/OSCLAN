@@ -1,12 +1,13 @@
 .module "main"
 
-.import "System"
-.import "System.Algorithms"
+.import "system"
+.import "system.algorithms"
 
 declare public struct List
     [int(8)] size
     
-    .* Implicit struct; similar to a COBOL field containing subfields
+    .* Implicit struct; similar to a COBOL field containing subfields.
+    .* Has a capacity of twenty elements.
     [struct(20)] element
     begin
         [string(10)] first-name
@@ -15,9 +16,9 @@ declare public struct List
 end
 
 .* This procedure returns a new List with a single item
-declare public List::init-list()
+declare public [List]::init-list()
     declare [List]list : init List
-    declare [int8]localSize : 1
+    declare [int(8)]localSize : 1
 
     list::size : localSize
     list::element(0) : declare anon
@@ -28,7 +29,7 @@ declare public List::init-list()
     ret list
 end
 
-declare private void::add-child-to-list([List*] list, [string(20)] first-name, [string(20)] last-name)
+declare private [void]::add-child-to-list([List*] list, [string(20)] first-name, [string(20)] last-name)
     list::element(list::size) : declare anon
         first-name
         last-name
@@ -37,21 +38,23 @@ declare private void::add-child-to-list([List*] list, [string(20)] first-name, [
     increment list::size
 end
 
-declare public uint(4)::main()
+declare public [uint(4)]::main()
     print "Neoc (Neo-COBOL) example"
 
     declare [List]list : init-list()
-    add-child-to-list(list, "Jane", "Doe")
+    call add-child-to-list(*list, "Jane", "Doe")
 
     if list::size = 1 then
         print "Something went wrong."
     end
 
     .* Fetch data from JSON endpoint (currently out-of-scope)
-    .*declare [SomeStruct]data, [string]error : fetch "https://some-website/api/some-endpoint.json"
+    .*declare [SomeStruct]data, [string(50)]error : fetch "https://some-website/api/some-endpoint.json"
 
     .*if error::message ~= space then
     .*    print "Unable to reach endpoint"
     .*    ret -1
     .*end
+
+    ret ok
 end

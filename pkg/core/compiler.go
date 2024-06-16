@@ -42,11 +42,11 @@ func GenerateIl(options CompilerOptions) error {
 		return err
 	}
 
-	if parser, err = InitializeParser(tokens); err != nil {
+	if err = saveTokens(tokens, target); err != nil {
 		return err
 	}
 
-	if err = saveTokens(tokens, target); err != nil {
+	if parser, err = InitializeParser(tokens); err != nil {
 		return err
 	}
 

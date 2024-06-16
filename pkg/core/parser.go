@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -15,27 +16,31 @@ type Parser struct {
 type AstNodeType int64
 
 const (
-	Root AstNodeType = iota
-	Directive
-	DirArgument
-	Modifier
-	Structure
-	Function
-	Type
-	Field
-	ImplArgument
+	ntRoot AstNodeType = iota
+	ntDirective
+	ntStructure
+	ntProcedure
+	ntCondition
+	ntType
+	ntModifier
+	ntField
+	ntArgument
+	ntAssignment
+	ntVariable
 )
 
 var nodeStringMapping = map[AstNodeType]string{
-	Root:         "Root",
-	Directive:    "Directive",
-	DirArgument:  "DirArgument",
-	Modifier:     "Modifier",
-	Function:     "Function",
-	Structure:    "Structure",
-	Type:         "Type",
-	Field:        "Field",
-	ImplArgument: "ImplArgument",
+	ntRoot:       "Root",
+	ntDirective:  "Directive",
+	ntStructure:  "Structure",
+	ntProcedure:  "Procedure",
+	ntCondition:  "Condition",
+	ntType:       "Type",
+	ntModifier:   "Modifier",
+	ntField:      "Field",
+	ntArgument:   "Argument",
+	ntAssignment: "Assignment",
+	ntVariable:   "Variable",
 }
 
 func AstNodeTypeToString(nodeType AstNodeType) string {
@@ -51,6 +56,7 @@ type AstTreeNode struct {
 	Type      AstNodeType
 	Value     string
 	ValueType string
+	ValueSize uint8
 }
 
 func (n AstTreeNode) ToString() string {
@@ -78,9 +84,17 @@ func InitializeParser(tokens []Token) (*Parser, error) {
 	}, nil
 }
 
+func (p *Parser) unexpectedTokenError(tokenType TokenType) error {
+	return fmt.Errorf("unexpected token of type '%s', expected '%s'. Position = %s",
+		TokenTypeToString(p.CurrentToken.Type),
+		TokenTypeToString(tokenType),
+		p.CurrentToken.Position.ToString(),
+	)
+}
+
 func (p *Parser) Consume(tokenType TokenType) (Token, error) {
 	if p.CurrentToken.Type != tokenType {
-		return Token{}, fmt.Errorf("unexpected token of type '%s'", TokenTypeToString(p.CurrentToken.Type))
+		return Token{}, p.unexpectedTokenError(tokenType)
 	}
 
 	oldToken := p.CurrentToken
@@ -95,6 +109,10 @@ func (p *Parser) Consume(tokenType TokenType) (Token, error) {
 	return oldToken, nil
 }
 
+func (p *Parser) IsAt(tokenType TokenType) bool {
+	return p.Tokens[p.CurrentTokenIndex].Type == tokenType
+}
+
 func (p *Parser) Lookahead() TokenType {
 	return p.Tokens[p.CurrentTokenIndex+1].Type
 }
@@ -103,39 +121,39 @@ func (p *Parser) ParseDirective(parent *AstTreeNode) (*AstTreeNode, error) {
 	var err error
 	var token Token
 
-	if _, err = p.Consume(Dot); err != nil {
+	if _, err = p.Consume(ttDot); err != nil {
 		return parent, err
 	}
 
-	if token, err = p.Consume(Identifier); err != nil {
+	if token, err = p.Consume(ttIdentifier); err != nil {
 		return parent, err
 	}
 
 	directive := AstTreeNode{
-		Type:  Directive,
+		Type:  ntDirective,
 		Value: token.Value,
 	}
 
 	var argument Token
 
-	switch token.Value {
+	switch strings.ToLower(token.Value) {
 	case "module":
-		argument, err = p.Consume(String)
+		argument, err = p.Consume(ttString)
 
 		if err != nil {
 			return parent, err
 		}
 
-		directive.Children = append(directive.Children, AstTreeNode{Type: DirArgument, Value: argument.Value})
+		directive.Children = append(directive.Children, AstTreeNode{Type: ntArgument, Value: argument.Value})
 
 	case "import":
-		argument, err = p.Consume(String)
+		argument, err = p.Consume(ttString)
 
 		if err != nil {
 			return parent, err
 		}
 
-		directive.Children = append(directive.Children, AstTreeNode{Type: DirArgument, Value: argument.Value})
+		directive.Children = append(directive.Children, AstTreeNode{Type: ntArgument, Value: argument.Value})
 
 	default:
 		return parent, fmt.Errorf("invalid directive '%s'", token.Value)
@@ -143,232 +161,364 @@ func (p *Parser) ParseDirective(parent *AstTreeNode) (*AstTreeNode, error) {
 
 	parent.Children = append(parent.Children, directive)
 
-	return parent, nil
+	return &directive, nil
 }
 
-// TODO: Deze rotzooi opruimen.
-func (p *Parser) ParseBlock(parent *AstTreeNode) (*AstTreeNode, error) {
+func (p *Parser) ParseDeclaration(parent *AstTreeNode) (*AstTreeNode, error) {
 	var err error
-	var visibility string
 
-	if p.CurrentToken.Type == Minus {
-		_, err = p.Consume(Minus)
-		visibility = "private"
+	if _, err = p.Consume(ttDeclare); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	var modifiers []AstTreeNode
+
+	for p.IsAt(ttModifier) {
+		var modifier Token
+
+		if modifier, err = p.Consume(ttModifier); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		modifiers = append(modifiers, AstTreeNode{Type: ntModifier, Value: modifier.Value})
+	}
+
+	var declaration *AstTreeNode
+	if p.IsAt(ttStruct) {
+		declaration, err = p.ParseStructure(parent)
+
+		if err != nil {
+			return &AstTreeNode{}, err
+		}
+	} else if p.IsAt(ttLbracket) {
+		declaration, err = p.ParseProcedure(parent)
+
+		if err != nil {
+			return &AstTreeNode{}, err
+		}
 	} else {
-		_, err = p.Consume(Plus)
-		visibility = "public"
+		return &AstTreeNode{}, p.unexpectedTokenError(ttIdentifier)
 	}
 
-	if err != nil {
-		return &AstTreeNode{}, err
-	}
+	declaration.Children = append(declaration.Children, modifiers...)
 
-	switch p.CurrentToken.Type {
-	case Impl:
-		p.ParseImplementationBlock(parent, visibility)
-
-	case Struct:
-		p.ParseStruct(parent, visibility)
-
-	default:
-		return &AstTreeNode{}, fmt.Errorf("expected 'impl' or 'struct' token, but got '%s'", TokenTypeToString(p.CurrentToken.Type))
-	}
-
-	return parent, nil
+	return declaration, nil
 }
 
-func (p *Parser) ParseImplementationBlock(parent *AstTreeNode, visibility string) (*AstTreeNode, error) {
-	var err error
-	blockNode := &AstTreeNode{
-		Type:     Function,
-		Children: []AstTreeNode{{Type: Modifier, Value: visibility}},
-	}
-
-	if _, err = p.Consume(Impl); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	var returnType Token
-	if returnType, err = p.Consume(Identifier); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	blockNode.ValueType = returnType.Value
-
-	// Base type, i.e. the class name
-	baseType := AstTreeNode{Type: Type}
-	p.ParseType(&baseType)
-	blockNode.Children = append(blockNode.Children, baseType)
-
-	if _, err = p.Consume(DoubleColon); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	// Implementation name
-	var functionNameToken Token
-	if functionNameToken, err = p.Consume(Identifier); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	blockNode.Value = functionNameToken.Value
-	parent.Children = append(parent.Children, *blockNode)
-
-	if _, err = p.ParseArguments(blockNode); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	// Body
-	if _, err = p.Consume(Lbrace); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	p.ParseCompound(parent)
-
-	if _, err = p.Consume(Rbrace); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	return parent, nil
-}
-
-func (p *Parser) ParseStruct(parent *AstTreeNode, visibility string) (*AstTreeNode, error) {
-	var err error
-
-	structNode := &AstTreeNode{
-		Type:     Function,
-		Children: []AstTreeNode{{Type: Modifier, Value: visibility}},
-	}
-
-	if _, err := p.Consume(Struct); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	// The type of a struct is also its name
-	p.ParseType(structNode)
-
-	if _, err = p.Consume(Lbrace); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	for p.CurrentToken.Type != EOF && p.CurrentToken.Type != Rbrace {
-		field := AstTreeNode{Type: Field}
-		p.ParseType(&field)
-
-		var identifier Token
-
-		if identifier, err = p.Consume(Identifier); err != nil {
-			return &AstTreeNode{}, err
-		}
-
-		field.Value = identifier.Value
-		structNode.Children = append(structNode.Children, field)
-	}
-
-	if _, err = p.Consume(Rbrace); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	parent.Children = append(parent.Children, *structNode)
-
-	return parent, nil
-}
-
-func (p *Parser) ParseCompound(parent *AstTreeNode) (*AstTreeNode, error) {
-
-	return &AstTreeNode{}, nil
-}
-
-func (p *Parser) ParseArguments(parent *AstTreeNode) (*AstTreeNode, error) {
-	var err error
-
-	if _, err = p.Consume(Lparen); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	if p.CurrentToken.Type == Rparen {
-		p.Consume(Rparen)
-
-		return parent, nil
-	}
-
-	for p.CurrentToken.Type != EOF && p.CurrentToken.Type != Rparen {
-		argument := AstTreeNode{Type: ImplArgument}
-		p.ParseType(&argument)
-
-		var identifier Token
-
-		if identifier, err = p.Consume(Identifier); err != nil {
-			return &AstTreeNode{}, err
-		}
-
-		argument.Value = identifier.Value
-		parent.Children = append(parent.Children, argument)
-
-		if p.CurrentToken.Type == Comma {
-			if _, err = p.Consume(Comma); err != nil {
-				return &AstTreeNode{}, err
-			}
-		}
-	}
-
-	if _, err = p.Consume(Rparen); err != nil {
-		return &AstTreeNode{}, err
-	}
-
-	return parent, nil
-}
-
-func (p *Parser) ParseType(parent *AstTreeNode) (*AstTreeNode, error) {
-	node := AstTreeNode{
-		Type: Type,
-	}
-
-	var err error
+func (p *Parser) ParseStructure(parent *AstTreeNode) (*AstTreeNode, error) {
 	var token Token
+	var err error
 
-	if token, err = p.Consume(Identifier); err != nil {
+	node := AstTreeNode{
+		Type: ntProcedure,
+	}
+
+	if _, err := p.Consume(ttStruct); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	if token, err = p.Consume(ttIdentifier); err != nil {
 		return &AstTreeNode{}, err
 	}
 
 	node.Value = token.Value
 
-	if p.CurrentToken.Type == Lt {
-		p.Consume(Lt)
-		p.ParseType(&node)
+	for !p.IsAt(ttEOF) && !p.IsAt(ttEnd) {
+		field := AstTreeNode{Type: ntField}
+		typeNode, err := p.ParseType(&field)
 
-		if _, err := p.Consume(Gt); err != nil {
+		if err != nil {
 			return &AstTreeNode{}, err
 		}
+
+		field.Children = append(field.Children, *typeNode)
+
+		if typeNode.Type == ntStructure {
+			subStructure, err := p.ParseImplicitStructure(&field)
+
+			if err != nil {
+				return &AstTreeNode{}, err
+			}
+
+			field.Children = append(field.Children, *subStructure)
+			continue
+		}
+
+		var identifier Token
+
+		if identifier, err = p.Consume(ttIdentifier); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		field.Value = identifier.Value
+		node.Children = append(node.Children, field)
+	}
+
+	if _, err = p.Consume(ttEnd); err != nil {
+		return &AstTreeNode{}, err
 	}
 
 	parent.Children = append(parent.Children, node)
 
-	return parent, nil
+	return &node, nil
+}
+
+// TODO: Merge with the above function.
+func (p *Parser) ParseImplicitStructure(parent *AstTreeNode) (*AstTreeNode, error) {
+	var node = AstTreeNode{Type: ntStructure}
+	var err error
+
+	var identifierToken Token
+	if identifierToken, err = p.Consume(ttIdentifier); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	node.Value = identifierToken.Value
+
+	if _, err = p.Consume(ttBegin); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	for !p.IsAt(ttEOF) && !p.IsAt(ttEnd) {
+		field := AstTreeNode{Type: ntField}
+		typeNode, err := p.ParseType(&field)
+
+		if err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		node.Children = append(node.Children, *typeNode)
+
+		if typeNode.Type == ntStructure {
+			subStructure, err := p.ParseImplicitStructure(&field)
+
+			if err != nil {
+				return &AstTreeNode{}, err
+			}
+
+			field.Children = append(field.Children, *subStructure)
+			continue
+		}
+
+		var identifier Token
+
+		if identifier, err = p.Consume(ttIdentifier); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		field.Value = identifier.Value
+		node.Children = append(node.Children, field)
+	}
+
+	if _, err = p.Consume(ttEnd); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	return &node, nil
+}
+
+func (p *Parser) ParseProcedure(parent *AstTreeNode) (*AstTreeNode, error) {
+	var node = AstTreeNode{Type: ntProcedure}
+	var err error
+
+	// Get the return type of the procedure
+	var returnTypeNode *AstTreeNode
+	if returnTypeNode, err = p.ParseType(&node); err != nil {
+		return &AstTreeNode{}, err
+	}
+	node.Children = append(node.Children, *returnTypeNode)
+
+	if _, err = p.Consume(ttDoubleColon); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	// Procedure name
+	var identifierToken Token
+	if identifierToken, err = p.Consume(ttIdentifier); err != nil {
+		return &AstTreeNode{}, err
+	}
+	node.Value = identifierToken.Value
+
+	// Arguments
+	if _, err = p.Consume(ttLparen); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	for !p.IsAt(ttRparen) && !p.IsAt(ttEOF) {
+		if p.IsAt(ttComma) {
+			if _, err = p.Consume(ttComma); err != nil {
+				return &AstTreeNode{}, err
+			}
+		}
+
+		argumentNode := AstTreeNode{Type: ntArgument}
+
+		// Argument type
+		var typeNode *AstTreeNode
+		if typeNode, err = p.ParseType(&argumentNode); err != nil {
+			return &AstTreeNode{}, err
+		}
+		argumentNode.ValueType = typeNode.Value
+
+		// Argument name
+		var identifierNode Token
+		if identifierNode, err = p.Consume(ttIdentifier); err != nil {
+			return &AstTreeNode{}, err
+		}
+		argumentNode.Value = identifierNode.Value
+	}
+
+	// Parse body
+	var statements []AstTreeNode
+	if statements, err = p.ParseCompound(&node); err != nil {
+		return &AstTreeNode{}, err
+	}
+	node.Children = append(node.Children, statements...)
+
+	if _, err = p.Consume(ttRparen); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	return &node, nil
+}
+
+func (p *Parser) ParseCompound(parent *AstTreeNode) ([]AstTreeNode, error) {
+	var statements []AstTreeNode
+	var err error
+
+	for !p.IsAt(ttEOF) {
+		switch p.CurrentToken.Type {
+
+		// Variable declaration
+		case ttDeclare:
+			var node AstTreeNode
+
+			if node, err = p.ParseVariableDeclaration(&node); err != nil {
+				return []AstTreeNode{}, err
+			}
+
+			statements = append(statements, node)
+
+		default:
+			return []AstTreeNode{}, fmt.Errorf(
+				"unexpected token of type '%s' at Position = %s",
+				TokenTypeToString(p.CurrentToken.Type),
+				p.CurrentToken.Position.ToString(),
+			)
+		}
+	}
+
+	return statements, nil
+}
+
+func (p *Parser) ParseVariableDeclaration(parent *AstTreeNode) (AstTreeNode, error) {
+	assignmentNode := AstTreeNode{Type: ntAssignment}
+	variableNode := AstTreeNode{Type: ntVariable}
+	var err error
+
+	// Variable type
+	var typeNode *AstTreeNode
+	if typeNode, err = p.ParseType(&variableNode); err != nil {
+		return AstTreeNode{}, err
+	}
+	variableNode.ValueType = typeNode.Value
+
+	// Variable name
+	var identifierNode Token
+	if identifierNode, err = p.Consume(ttIdentifier); err != nil {
+		return AstTreeNode{}, err
+	}
+	variableNode.Value = identifierNode.Value
+
+	// Assign variable as left operand
+	assignmentNode.Children = append(assignmentNode.Children, variableNode)
+
+	if _, err = p.Consume(ttColon); err != nil {
+		return AstTreeNode{}, err
+	}
+
+	return assignmentNode, nil
+}
+
+func (p *Parser) ParseType(parent *AstTreeNode) (*AstTreeNode, error) {
+	node := AstTreeNode{
+		Type: ntType,
+	}
+
+	var err error
+	var token Token
+
+	if _, err = p.Consume(ttLbracket); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	if token, err = p.Consume(ttIdentifier); err != nil {
+		// We might be dealing with a struct type (which is denoted by a dedicated token)
+		var structTypeError error
+		if token, structTypeError = p.Consume(ttStruct); structTypeError != nil {
+			return &AstTreeNode{}, err
+		}
+	}
+
+	node.Value = token.Value
+
+	if token.Type == ttStruct {
+		node.Type = ntStructure
+	} else {
+		node.Type = ntType
+	}
+
+	if p.IsAt(ttLparen) {
+		if token, err = p.Consume(ttLparen); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		if token, err = p.Consume(ttNumber); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		var u64 uint64
+		if u64, err = strconv.ParseUint(token.Value, 10, 8); err != nil {
+			return &AstTreeNode{}, err
+		}
+
+		// TODO: Add check here for math.MaxUint8
+		node.ValueSize = uint8(u64)
+
+		if _, err = p.Consume(ttRparen); err != nil {
+			return &AstTreeNode{}, err
+		}
+	}
+
+	if _, err = p.Consume(ttRbracket); err != nil {
+		return &AstTreeNode{}, err
+	}
+
+	parent.Children = append(parent.Children, node)
+
+	return &node, nil
 }
 
 func (p *Parser) GenerateAst() (AstTreeNode, error) {
-	rootNode := AstTreeNode{Type: Root}
+	rootNode := AstTreeNode{Type: ntRoot}
 
 	for p.CurrentTokenIndex < p.NumberOfTokens {
 		switch p.CurrentToken.Type {
-		case Dot:
-			_, err := p.ParseDirective(&rootNode)
-
-			if err != nil {
+		case ttDot:
+			if _, err := p.ParseDirective(&rootNode); err != nil {
 				return rootNode, err
 			}
-		case Plus:
-			if _, err := p.ParseBlock(&rootNode); err != nil {
-				return rootNode, err
-			}
-		case Minus:
-			if _, err := p.ParseBlock(&rootNode); err != nil {
+		case ttDeclare:
+			if _, err := p.ParseDeclaration(&rootNode); err != nil {
 				return rootNode, err
 			}
 		default:
 			// For debug purposes
 			fmt.Println(rootNode.ToString())
-			return AstTreeNode{}, fmt.Errorf("token of type '%s' is missing an implementation (at root level)", TokenTypeToString(p.CurrentToken.Type))
+			return AstTreeNode{}, fmt.Errorf("token of type '%s' is missing an implementation (at root level). Position = %s",
+				TokenTypeToString(p.CurrentToken.Type),
+				p.CurrentToken.Position.ToString(),
+			)
 		}
 	}
 

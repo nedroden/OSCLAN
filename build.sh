@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-go build -o nasgoc cmd/cli/main.go
+go build -o neocc cmd/cli/main.go
