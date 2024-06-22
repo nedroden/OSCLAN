@@ -1,3 +1,11 @@
 #!/usr/bin/env bash
 
-go build -o neocc cmd/cli/main.go
+set -e
+
+echo "[ ] Building compiler..."
+go build -C Compiler -o ../neocc cmd/cli/main.go
+echo "Done"
+
+echo "[ ] Building analyzer..."
+dotnet build Neoc.Analyzer
+echo "Done"

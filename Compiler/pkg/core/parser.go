@@ -27,6 +27,8 @@ const (
 	ntArgument
 	ntAssignment
 	ntVariable
+	ntAllocation
+	ntScalar
 )
 
 var nodeStringMapping = map[AstNodeType]string{
@@ -41,6 +43,8 @@ var nodeStringMapping = map[AstNodeType]string{
 	ntArgument:   "Argument",
 	ntAssignment: "Assignment",
 	ntVariable:   "Variable",
+	ntAllocation: "Allocation",
+	ntScalar:     "Scalar",
 }
 
 func AstNodeTypeToString(nodeType AstNodeType) string {
@@ -57,6 +61,7 @@ type AstTreeNode struct {
 	Value     string
 	ValueType string
 	ValueSize uint8
+	Offset    uint8
 }
 
 func (n AstTreeNode) ToString() string {
@@ -368,6 +373,10 @@ func (p *Parser) ParseProcedure(parent *AstTreeNode) (*AstTreeNode, error) {
 		argumentNode.Value = identifierNode.Value
 	}
 
+	if _, err = p.Consume(ttRparen); err != nil {
+		return &AstTreeNode{}, nil
+	}
+
 	// Parse body
 	var statements []AstTreeNode
 	if statements, err = p.ParseCompound(&node); err != nil {
@@ -384,20 +393,24 @@ func (p *Parser) ParseProcedure(parent *AstTreeNode) (*AstTreeNode, error) {
 
 func (p *Parser) ParseCompound(parent *AstTreeNode) ([]AstTreeNode, error) {
 	var statements []AstTreeNode
-	var err error
 
 	for !p.IsAt(ttEOF) {
 		switch p.CurrentToken.Type {
 
 		// Variable declaration
 		case ttDeclare:
-			var node AstTreeNode
-
-			if node, err = p.ParseVariableDeclaration(&node); err != nil {
+			if node, err := p.ParseVariableAssignment(parent, true); err == nil {
+				statements = append(statements, node)
+			} else {
 				return []AstTreeNode{}, err
 			}
 
-			statements = append(statements, node)
+		case ttIdentifier:
+			if node, err := p.ParseVariableAssignment(parent, false); err == nil {
+				statements = append(statements, node)
+			} else {
+				return []AstTreeNode{}, err
+			}
 
 		default:
 			return []AstTreeNode{}, fmt.Errorf(
@@ -411,31 +424,92 @@ func (p *Parser) ParseCompound(parent *AstTreeNode) ([]AstTreeNode, error) {
 	return statements, nil
 }
 
-func (p *Parser) ParseVariableDeclaration(parent *AstTreeNode) (AstTreeNode, error) {
+func (p *Parser) ParseAutoMemoryAllocation() (AstTreeNode, error) {
+	var err error
+
+	if _, err = p.Consume(ttInit); err != nil {
+		return AstTreeNode{}, nil
+	}
+
+	node := AstTreeNode{Type: ntAllocation}
+
+	if token, err := p.ParseType(&node); err == nil {
+		node.ValueType = token.Value
+	} else {
+		return AstTreeNode{}, err
+	}
+
+	return node, nil
+}
+
+func (p *Parser) ParseVariableAssignment(parent *AstTreeNode, isDeclaration bool) (AstTreeNode, error) {
 	assignmentNode := AstTreeNode{Type: ntAssignment}
 	variableNode := AstTreeNode{Type: ntVariable}
 	var err error
 
-	// Variable type
-	var typeNode *AstTreeNode
-	if typeNode, err = p.ParseType(&variableNode); err != nil {
-		return AstTreeNode{}, err
-	}
-	variableNode.ValueType = typeNode.Value
+	// Variable type. Note that if this is a declaration and the type is missing,
+	// an error will be thrown later.
+	if isDeclaration {
+		if _, err = p.Consume(ttDeclare); err != nil {
+			return AstTreeNode{}, err
+		}
 
-	// Variable name
-	var identifierNode Token
-	if identifierNode, err = p.Consume(ttIdentifier); err != nil {
-		return AstTreeNode{}, err
+		if typeNode, err := p.ParseType(&variableNode); err == nil {
+			variableNode.ValueType = typeNode.Value
+		} else {
+			return AstTreeNode{}, err
+		}
 	}
-	variableNode.Value = identifierNode.Value
 
-	// Assign variable as left operand
-	assignmentNode.Children = append(assignmentNode.Children, variableNode)
+	// Variable name. In case of declarations only a single identifier is allowed
+	if isDeclaration {
+		if identifierNode, err := p.Consume(ttIdentifier); err == nil {
+			variableNode.Value = identifierNode.Value
+		} else {
+			return AstTreeNode{}, err
+		}
+	} else {
+		if identifierNode, err := p.GetVariableName(); err == nil {
+			variableNode.Value = identifierNode.Value
+		} else {
+			return AstTreeNode{}, err
+		}
+	}
 
 	if _, err = p.Consume(ttColon); err != nil {
 		return AstTreeNode{}, err
 	}
+
+	var rightOperand AstTreeNode
+	switch p.CurrentToken.Type {
+	case ttInit:
+		rightOperand, err = p.ParseAutoMemoryAllocation()
+
+		if err != nil {
+			return AstTreeNode{}, err
+		}
+	case ttNumber:
+		rightOperand = AstTreeNode{Type: ntScalar, ValueType: "number"}
+
+		if token, err := p.Consume(ttNumber); err == nil {
+			rightOperand.Value = token.Value
+		} else {
+			return AstTreeNode{}, err
+		}
+	case ttIdentifier:
+		rightOperand = AstTreeNode{Type: ntVariable, ValueType: "unknown"}
+
+		if token, err := p.Consume(ttIdentifier); err == nil {
+			rightOperand.Value = token.Value
+		} else {
+			return AstTreeNode{}, err
+		}
+	default:
+		return AstTreeNode{}, p.unexpectedTokenError(ttIdentifier)
+	}
+
+	// Assign variable as left operand
+	assignmentNode.Children = append(assignmentNode.Children, variableNode, rightOperand)
 
 	return assignmentNode, nil
 }
@@ -497,6 +571,32 @@ func (p *Parser) ParseType(parent *AstTreeNode) (*AstTreeNode, error) {
 	parent.Children = append(parent.Children, node)
 
 	return &node, nil
+}
+
+func (p *Parser) GetVariableName() (AstTreeNode, error) {
+	node := AstTreeNode{Type: ntVariable}
+
+	if variable, err := p.Consume(ttIdentifier); err == nil {
+		node.Value = variable.Value
+	} else {
+		return AstTreeNode{}, err
+	}
+
+	for p.IsAt(ttDoubleColon) {
+		if _, err := p.Consume(ttDoubleColon); err != nil {
+			return AstTreeNode{}, err
+		}
+
+		// TODO: Was working on this (offsets, each ::identifier as a child of the preceding one)
+		if partialIdentifier, err := p.Consume(ttIdentifier); err == nil {
+			//node.Children = append(node.Children)
+			node.Value += fmt.Sprintf(".%s", partialIdentifier.Value)
+		} else {
+			return AstTreeNode{}, err
+		}
+	}
+
+	return node, nil
 }
 
 func (p *Parser) GenerateAst() (AstTreeNode, error) {

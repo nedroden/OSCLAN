@@ -17,9 +17,10 @@ end
 
 .* This procedure returns a new List with a single item
 declare public [List]::init-list()
-    declare [List]list : init List
+    declare [List]list : init [List]
     declare [int(8)]localSize : 1
 
+    .* June 22nd: continue here.
     list::size : localSize
     list::element(0) : declare anon
         first-name : "John"

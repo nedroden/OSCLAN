@@ -3,3 +3,7 @@
 output
 nasgoc
 neocc
+
+# .NET modules
+bin
+obj

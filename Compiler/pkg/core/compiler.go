@@ -33,7 +33,7 @@ func GenerateIl(options CompilerOptions) error {
 
 	target := os.Args[1]
 
-	if tokenizer, err = InitTokenizer(target, "examples"); err != nil {
+	if tokenizer, err = InitTokenizer(target, "Examples"); err != nil {
 		return err
 	}
 

@@ -217,7 +217,7 @@ func (t *Tokenizer) TokenizeIdentifier() Token {
 	originalPosition := t.Position
 	var sb strings.Builder
 
-	for unicode.IsLetter(t.CurrentChar) || unicode.IsDigit(t.CurrentChar) || t.CurrentChar == '-' {
+	for IsIdentifierChar(t.CurrentChar) {
 		sb.WriteRune(t.CurrentChar)
 
 		t.Advance()
@@ -295,6 +295,14 @@ func (t *Tokenizer) GetTokens() ([]Token, error) {
 
 		for sequence, sequenceToken := range sequences {
 			if t.IsAtSequence(sequence) {
+				// / Things like init-list should not be matched
+				if t.SourceLength > t.Position.Offset+len(sequence) &&
+					IsIdentifierChar(t.Source[t.Position.Offset+len(sequence)]) &&
+					sequence != "::" {
+
+					continue
+				}
+
 				token = sequenceToken
 				token.Position = t.Position
 				tokens = append(tokens, token)
@@ -352,4 +360,8 @@ func (t *Tokenizer) GetTokens() ([]Token, error) {
 	tokens = append(tokens, Token{Position: t.Position, Type: ttEOF})
 
 	return tokens, nil
+}
+
+func IsIdentifierChar(char rune) bool {
+	return unicode.IsLetter(char) || unicode.IsDigit(char) || char == '-'
 }
