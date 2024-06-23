@@ -1,6 +1,6 @@
 # Neoc
 
-Compiler for Neoc (neo-COBOL), a toy language that compiles to MSIL.
+Compiler for Neoc (neo-COBOL), a business-oriented toy language that compiles to MSIL.
 
 ## Context
 

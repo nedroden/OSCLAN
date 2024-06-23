@@ -36,7 +36,7 @@ declare private [void]::add-child-to-list([List*] list, [string(20)] first-name,
         last-name
     end
 
-    increment list::size
+    .* increment list::size
 end
 
 declare public [uint(4)]::main()
@@ -45,7 +45,7 @@ declare public [uint(4)]::main()
     declare [List]list : init-list()
     call add-child-to-list(*list, "Jane", "Doe")
 
-    if list::size = 1 then
+    if list::size ~= 1 then
         print "Something went wrong."
     end
 

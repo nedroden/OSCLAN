@@ -62,6 +62,7 @@ const (
 	ttColon
 	ttRet
 	ttIncrement
+	ttDecrement
 	ttAnon
 	ttPrint
 	ttOk
@@ -102,6 +103,7 @@ var tokenStringMapping = map[TokenType]string{
 	ttColon:       "Colon",
 	ttRet:         "Ret",
 	ttIncrement:   "Increment",
+	ttDecrement:   "Decrement",
 	ttAnon:        "Anon",
 	ttPrint:       "Print",
 	ttOk:          "Ok",
@@ -129,16 +131,22 @@ func TokenTypeToString(tokenType TokenType) string {
 
 // TODO: sort based on usage statistics
 var sequences = map[string]Token{
-	"declare": {Type: ttDeclare},
-	"struct":  {Type: ttStruct},
-	"public":  {Type: ttModifier, Value: "public"},
-	"private": {Type: ttModifier, Value: "private"},
-	"end":     {Type: ttEnd},
-	"call":    {Type: ttCall},
-	"::":      {Type: ttDoubleColon},
-	"~=":      {Type: ttNeq},
-	"begin":   {Type: ttBegin},
-	"init":    {Type: ttInit},
+	"::":        {Type: ttDoubleColon},
+	"declare":   {Type: ttDeclare},
+	"anon":      {Type: ttAnon},
+	"struct":    {Type: ttStruct},
+	"end":       {Type: ttEnd},
+	"public":    {Type: ttModifier, Value: "public"},
+	"private":   {Type: ttModifier, Value: "private"},
+	"increment": {Type: ttIncrement},
+	"decrement": {Type: ttDecrement},
+	"print":     {Type: ttPrint},
+	"call":      {Type: ttCall},
+	"~=":        {Type: ttNeq},
+	"begin":     {Type: ttBegin},
+	"init":      {Type: ttInit},
+	"ok":        {Type: ttNumber, Value: "0"},
+	"ret":       {Type: ttRet},
 }
 
 func InitTokenizer(filename string, directory string) (*Tokenizer, error) {
