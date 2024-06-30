@@ -20,6 +20,7 @@ const (
 	ntDirective
 	ntStructure
 	ntProcedure
+	ntProcedureCall
 	ntCondition
 	ntType
 	ntModifier
@@ -35,22 +36,23 @@ const (
 )
 
 var nodeStringMapping = map[AstNodeType]string{
-	ntRoot:       "Root",
-	ntDirective:  "Directive",
-	ntStructure:  "Structure",
-	ntProcedure:  "Procedure",
-	ntCondition:  "Condition",
-	ntType:       "Type",
-	ntModifier:   "Modifier",
-	ntField:      "Field",
-	ntArgument:   "Argument",
-	ntAssignment: "Assignment",
-	ntVariable:   "Variable",
-	ntAllocation: "Allocation",
-	ntScalar:     "Scalar",
-	ntDynOffset:  "DynOffset",
-	ntPrint:      "Print",
-	ntRet:        "Ret",
+	ntRoot:          "Root",
+	ntDirective:     "Directive",
+	ntStructure:     "Structure",
+	ntProcedure:     "Procedure",
+	ntCondition:     "Condition",
+	ntType:          "Type",
+	ntModifier:      "Modifier",
+	ntField:         "Field",
+	ntArgument:      "Argument",
+	ntAssignment:    "Assignment",
+	ntVariable:      "Variable",
+	ntAllocation:    "Allocation",
+	ntScalar:        "Scalar",
+	ntDynOffset:     "DynOffset",
+	ntPrint:         "Print",
+	ntRet:           "Ret",
+	ntProcedureCall: "ntProcedureCall",
 }
 
 func AstNodeTypeToString(nodeType AstNodeType) string {
@@ -454,6 +456,12 @@ func (p *Parser) parseCompound() ([]AstTreeNode, error) {
 				return []AstTreeNode{}, err
 			}
 
+		case ttCall:
+			if node, err := p.parseProcedureCall(); err == nil {
+				statements = append(statements, node)
+			} else {
+				return []AstTreeNode{}, err
+			}
 		// case ttIncrement, ttDecrement:
 
 		default:
@@ -588,8 +596,24 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 		} else {
 			return AstTreeNode{}, err
 		}
+	case ttAsterisk:
+		rightOperand = AstTreeNode{Type: ntVariable, ValueType: "unknown", IsPointer: true}
+
+		if _, err := p.consume(ttAsterisk); err != nil {
+			return AstTreeNode{}, err
+		}
+
+		if token, err := p.consume(ttIdentifier); err == nil {
+			rightOperand.Value = token.Value
+		} else {
+			return AstTreeNode{}, err
+		}
 	case ttDeclare:
 		if rightOperand, err = p.parseAnonDeclaration(); err != nil {
+			return AstTreeNode{}, err
+		}
+	case ttCall:
+		if rightOperand, err = p.parseProcedureCall(); err != nil {
 			return AstTreeNode{}, err
 		}
 	default:
@@ -759,6 +783,48 @@ func (p *Parser) getVariableName() (AstTreeNode, error) {
 		}
 
 		childNode = childNode.Children[0]
+	}
+
+	return node, nil
+}
+
+func (p *Parser) parseProcedureCall() (AstTreeNode, error) {
+	node := AstTreeNode{Type: ntProcedureCall}
+
+	if _, err := p.consume(ttCall); err != nil {
+		return AstTreeNode{}, err
+	}
+
+	// Name of the procedure
+	if token, err := p.consume(ttIdentifier); err == nil {
+		node.Name = token.Value
+	} else {
+		return AstTreeNode{}, err
+	}
+
+	// Arguments
+	if _, err := p.consume(ttLparen); err != nil {
+		return AstTreeNode{}, err
+	}
+
+	for !p.isAt(ttRparen) && !p.isAt(ttEOF) {
+		// Treat this as an assignment without a left operand.
+		if argument, err := p.parseAssignment(false, false, true); err == nil {
+			argument.Type = ntArgument
+			node.Children = append(node.Children, argument)
+		} else {
+			return AstTreeNode{}, err
+		}
+
+		if !p.isAt(ttRparen) {
+			if _, err := p.consume(ttComma); err != nil {
+				return AstTreeNode{}, err
+			}
+		}
+	}
+
+	if _, err := p.consume(ttRparen); err != nil {
+		return AstTreeNode{}, err
 	}
 
 	return node, nil

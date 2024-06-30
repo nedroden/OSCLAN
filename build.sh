@@ -7,5 +7,5 @@ go build -C Compiler -o ../neocc cmd/cli/main.go
 echo "Done"
 
 echo "[ ] Building analyzer..."
-dotnet build Neoc.Analyzer
+dotnet build Neoc.OutputAnalyzer
 echo "Done"

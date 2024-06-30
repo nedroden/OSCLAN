@@ -1,7 +1,7 @@
 ﻿using System;
 using CommandLine;
 
-namespace Neoc.Analyzer
+namespace Neoc.OutputAnalyzer
 {
     class Program
     {

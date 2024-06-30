@@ -20,7 +20,6 @@ declare public [List]::init-list()
     declare [List]list : init [List]
     declare [int(8)]localSize : 1
 
-    .* June 22nd: continue here.
     list::size : localSize
     list::element(0) : declare anon
         first-name : "John"
@@ -42,7 +41,7 @@ end
 declare public [uint(4)]::main()
     print "Neoc (Neo-COBOL) example"
 
-    declare [List]list : init-list()
+    declare [List]list : call init-list()
     call add-child-to-list(*list, "Jane", "Doe")
 
     if list::size ~= 1 then

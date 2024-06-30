@@ -62,3 +62,5 @@ The language has the following (case-insensitive) keywords:
 - [ ] Statistics (e.g., number of tokens per token type)
 - [ ] Syntax highlighting in VS Code
 - [ ] Unit tests (once tokenizer and parser are done)
+
+**Note:** analyzer and optimizer will be added _after_ a basic code generator.

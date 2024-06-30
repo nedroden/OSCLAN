@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace Neoc.Analyzer
+namespace Neoc.OutputAnalyzer
 {
     public class Analyzer
     {
