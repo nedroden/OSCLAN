@@ -54,13 +54,18 @@ The language has the following (case-insensitive) keywords:
 ## Todo
 
 - [ ] Code generation (AArch64 assembly)
+- [ ] Finish parser
+  - [ ] Increment/decrement
+  - [ ] Expressions
+  - [ ] If-else statements
+  - [ ] Loops
 - [ ] Clean up pointer mess in parser
 - [ ] Refactoring
-- [ ] Analyzer
+- [ ] Semantic analyzer
 - [ ] Optimizer
 - [ ] Imports
 - [ ] Statistics (e.g., number of tokens per token type)
 - [ ] Syntax highlighting in VS Code
 - [ ] Unit tests (once tokenizer and parser are done)
 
-**Note:** analyzer and optimizer will be added _after_ a basic code generator.
+**Note:** optimizer and more advanced analyzer will be added _after_ a basic code generator.

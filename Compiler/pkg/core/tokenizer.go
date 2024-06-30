@@ -65,7 +65,6 @@ const (
 	ttDecrement
 	ttAnon
 	ttPrint
-	ttOk
 	ttIf
 	ttElse
 	ttThen
@@ -106,7 +105,6 @@ var tokenStringMapping = map[TokenType]string{
 	ttDecrement:   "Decrement",
 	ttAnon:        "Anon",
 	ttPrint:       "Print",
-	ttOk:          "Ok",
 	ttIf:          "If",
 	ttElse:        "Else",
 	ttThen:        "Then",
@@ -146,7 +144,12 @@ var sequences = map[string]Token{
 	"begin":     {Type: ttBegin},
 	"init":      {Type: ttInit},
 	"ok":        {Type: ttNumber, Value: "0"},
+	"true":      {Type: ttNumber, Value: "1"},
+	"false":     {Type: ttNumber, Value: "0"},
 	"ret":       {Type: ttRet},
+	"if":        {Type: ttIf},
+	"else":      {Type: ttElse},
+	"then":      {Type: ttThen},
 }
 
 func InitTokenizer(filename string, directory string) (*Tokenizer, error) {

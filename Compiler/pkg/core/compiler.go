@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type CompilerOptions struct {
@@ -29,17 +30,19 @@ func GenerateIl(options CompilerOptions) error {
 	os.RemoveAll("output")
 	os.Mkdir("output", 0755)
 
+	// Step 1: Tokenization
 	var tokens []Token
 	if tokens, err = tokenizer.GetTokens(); err != nil {
 		return err
 	}
 
-	if bytes, err := json.MarshalIndent(tokens, "", "\t"); err == nil {
-		os.WriteFile(fmt.Sprintf("output/%s.tokens.json", target), bytes, 0644)
+	if bytes, err := json.MarshalIndent(tokens, "", "\t"); err == nil && options.SaveIntermediate {
+		os.WriteFile(fmt.Sprintf("output/%s.tokens.json", target), bytes, 0755)
 	} else {
 		return err
 	}
 
+	// Step 2: Parsing
 	if parser, err = InitializeParser(tokens); err != nil {
 		return err
 	}
@@ -49,11 +52,19 @@ func GenerateIl(options CompilerOptions) error {
 		return err
 	}
 
-	if bytes, err := json.MarshalIndent(ast, "", "\t"); err == nil {
-		os.WriteFile(fmt.Sprintf("output/%s.ast.json", target), bytes, 0644)
+	if bytes, err := json.MarshalIndent(ast, "", "\t"); err == nil && options.SaveIntermediate {
+		os.WriteFile(fmt.Sprintf("output/%s.ast.json", target), bytes, 0755)
 	} else {
 		return err
 	}
+
+	// Step 3: Semantic analysis
+
+	// Step 4: Optimization
+
+	// Step 5: Code generation
+	generator, _ := InitGenerator(ast)
+	os.WriteFile(fmt.Sprintf("output/%s.s", strings.TrimSuffix(target, ".neoc")), []byte(generator.GenerateIl()), 0755)
 
 	return nil
 }
