@@ -152,16 +152,16 @@ func (p *Parser) isAtSequence(tokenTypes ...TokenType) bool {
 	return true
 }
 
-func (p *Parser) parseDirective(parent *AstTreeNode) (*AstTreeNode, error) {
+func (p *Parser) parseDirective() (AstTreeNode, error) {
 	var err error
 	var token Token
 
 	if _, err = p.consume(ttDot); err != nil {
-		return parent, err
+		return AstTreeNode{}, err
 	}
 
 	if token, err = p.consume(ttIdentifier); err != nil {
-		return parent, err
+		return AstTreeNode{}, err
 	}
 
 	directive := AstTreeNode{
@@ -176,7 +176,7 @@ func (p *Parser) parseDirective(parent *AstTreeNode) (*AstTreeNode, error) {
 		argument, err = p.consume(ttString)
 
 		if err != nil {
-			return parent, err
+			return AstTreeNode{}, err
 		}
 
 		directive.Children = append(directive.Children, AstTreeNode{Type: ntArgument, Value: argument.Value})
@@ -185,25 +185,23 @@ func (p *Parser) parseDirective(parent *AstTreeNode) (*AstTreeNode, error) {
 		argument, err = p.consume(ttString)
 
 		if err != nil {
-			return parent, err
+			return AstTreeNode{}, err
 		}
 
 		directive.Children = append(directive.Children, AstTreeNode{Type: ntArgument, Value: argument.Value})
 
 	default:
-		return parent, fmt.Errorf("invalid directive '%s'", token.Value)
+		return AstTreeNode{}, fmt.Errorf("invalid directive '%s'", token.Value)
 	}
 
-	parent.Children = append(parent.Children, directive)
-
-	return &directive, nil
+	return directive, nil
 }
 
-func (p *Parser) parseDeclaration(parent *AstTreeNode) (*AstTreeNode, error) {
+func (p *Parser) parseDeclaration() (AstTreeNode, error) {
 	var err error
 
 	if _, err = p.consume(ttDeclare); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
 	var modifiers []AstTreeNode
@@ -212,27 +210,27 @@ func (p *Parser) parseDeclaration(parent *AstTreeNode) (*AstTreeNode, error) {
 		var modifier Token
 
 		if modifier, err = p.consume(ttModifier); err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 
 		modifiers = append(modifiers, AstTreeNode{Type: ntModifier, Value: modifier.Value})
 	}
 
-	var declaration *AstTreeNode
+	var declaration AstTreeNode
 	if p.isAt(ttStruct) {
-		declaration, err = p.parseStructure(parent)
+		declaration, err = p.parseStructure()
 
 		if err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 	} else if p.isAt(ttLbracket) {
 		declaration, err = p.parseProcedure()
 
 		if err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 	} else {
-		return &AstTreeNode{}, p.unexpectedTokenError(ttIdentifier)
+		return AstTreeNode{}, p.unexpectedTokenError(ttIdentifier)
 	}
 
 	declaration.Children = append(declaration.Children, modifiers...)
@@ -240,7 +238,7 @@ func (p *Parser) parseDeclaration(parent *AstTreeNode) (*AstTreeNode, error) {
 	return declaration, nil
 }
 
-func (p *Parser) parseStructure(parent *AstTreeNode) (*AstTreeNode, error) {
+func (p *Parser) parseStructure() (AstTreeNode, error) {
 	var token Token
 	var err error
 
@@ -249,11 +247,11 @@ func (p *Parser) parseStructure(parent *AstTreeNode) (*AstTreeNode, error) {
 	}
 
 	if _, err := p.consume(ttStruct); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
 	if token, err = p.consume(ttIdentifier); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
 	node.Value = token.Value
@@ -263,7 +261,7 @@ func (p *Parser) parseStructure(parent *AstTreeNode) (*AstTreeNode, error) {
 		typeNode, err := p.parseType(&field)
 
 		if err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 
 		field.Children = append(field.Children, *typeNode)
@@ -272,17 +270,17 @@ func (p *Parser) parseStructure(parent *AstTreeNode) (*AstTreeNode, error) {
 			subStructure, err := p.parseImplicitStructure()
 
 			if err != nil {
-				return &AstTreeNode{}, err
+				return AstTreeNode{}, err
 			}
 
-			field.Children = append(field.Children, *subStructure)
+			field.Children = append(field.Children, subStructure)
 			continue
 		}
 
 		var identifier Token
 
 		if identifier, err = p.consume(ttIdentifier); err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 
 		field.Value = identifier.Value
@@ -290,28 +288,26 @@ func (p *Parser) parseStructure(parent *AstTreeNode) (*AstTreeNode, error) {
 	}
 
 	if _, err = p.consume(ttEnd); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
-	parent.Children = append(parent.Children, node)
-
-	return &node, nil
+	return node, nil
 }
 
 // TODO: Merge with the above function.
-func (p *Parser) parseImplicitStructure() (*AstTreeNode, error) {
+func (p *Parser) parseImplicitStructure() (AstTreeNode, error) {
 	var node = AstTreeNode{Type: ntStructure}
 	var err error
 
 	var identifierToken Token
 	if identifierToken, err = p.consume(ttIdentifier); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
 	node.Value = identifierToken.Value
 
 	if _, err = p.consume(ttBegin); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
 	for !p.isAt(ttEOF) && !p.isAt(ttEnd) {
@@ -319,7 +315,7 @@ func (p *Parser) parseImplicitStructure() (*AstTreeNode, error) {
 		typeNode, err := p.parseType(&field)
 
 		if err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 
 		node.Children = append(node.Children, *typeNode)
@@ -328,17 +324,17 @@ func (p *Parser) parseImplicitStructure() (*AstTreeNode, error) {
 			subStructure, err := p.parseImplicitStructure()
 
 			if err != nil {
-				return &AstTreeNode{}, err
+				return AstTreeNode{}, err
 			}
 
-			field.Children = append(field.Children, *subStructure)
+			field.Children = append(field.Children, subStructure)
 			continue
 		}
 
 		var identifier Token
 
 		if identifier, err = p.consume(ttIdentifier); err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 
 		field.Value = identifier.Value
@@ -346,43 +342,43 @@ func (p *Parser) parseImplicitStructure() (*AstTreeNode, error) {
 	}
 
 	if _, err = p.consume(ttEnd); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
-	return &node, nil
+	return node, nil
 }
 
-func (p *Parser) parseProcedure() (*AstTreeNode, error) {
+func (p *Parser) parseProcedure() (AstTreeNode, error) {
 	var node = AstTreeNode{Type: ntProcedure}
 	var err error
 
 	// Get the return type of the procedure
 	var returnTypeNode *AstTreeNode
 	if returnTypeNode, err = p.parseType(&node); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 	node.Children = append(node.Children, *returnTypeNode)
 
 	if _, err = p.consume(ttDoubleColon); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
 	// Procedure name
 	var identifierToken Token
 	if identifierToken, err = p.consume(ttIdentifier); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 	node.Value = identifierToken.Value
 
 	// Arguments
 	if _, err = p.consume(ttLparen); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
 	for !p.isAt(ttRparen) && !p.isAt(ttEOF) {
 		if p.isAt(ttComma) {
 			if _, err = p.consume(ttComma); err != nil {
-				return &AstTreeNode{}, err
+				return AstTreeNode{}, err
 			}
 		}
 
@@ -391,34 +387,34 @@ func (p *Parser) parseProcedure() (*AstTreeNode, error) {
 		// Argument type
 		var typeNode *AstTreeNode
 		if typeNode, err = p.parseType(&argumentNode); err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 		argumentNode.ValueType = typeNode.Value
 
 		// Argument name
 		var identifierNode Token
 		if identifierNode, err = p.consume(ttIdentifier); err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 		argumentNode.Value = identifierNode.Value
 	}
 
 	if _, err = p.consume(ttRparen); err != nil {
-		return &AstTreeNode{}, nil
+		return AstTreeNode{}, nil
 	}
 
 	// Parse body
 	var statements []AstTreeNode
 	if statements, err = p.parseCompound(); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 	node.Children = append(node.Children, statements...)
 
 	if _, err = p.consume(ttEnd); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
-	return &node, nil
+	return node, nil
 }
 
 func (p *Parser) parseCompound() ([]AstTreeNode, error) {
@@ -833,14 +829,22 @@ func (p *Parser) parseProcedureCall() (AstTreeNode, error) {
 func (p *Parser) GenerateAst() (AstTreeNode, error) {
 	rootNode := AstTreeNode{Type: ntRoot}
 
-	for p.CurrentTokenIndex < p.NumberOfTokens {
+	for p.CurrentTokenIndex < p.NumberOfTokens-1 {
 		switch p.CurrentToken.Type {
 		case ttDot:
-			if _, err := p.parseDirective(&rootNode); err != nil {
+			if directive, err := p.parseDirective(); err == nil {
+				rootNode.Children = append(rootNode.Children, directive)
+			} else {
 				return rootNode, err
 			}
 		case ttDeclare:
-			if _, err := p.parseDeclaration(&rootNode); err != nil {
+			if declaration, err := p.parseDeclaration(); err == nil {
+				rootNode.Children = append(rootNode.Children, declaration)
+			} else {
+				return rootNode, err
+			}
+		case ttEOF:
+			if _, err := p.consume(ttEOF); err != nil {
 				return rootNode, err
 			}
 		default:

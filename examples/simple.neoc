@@ -44,9 +44,9 @@ declare public [uint(4)]::main()
     declare [List]list : call init-list()
     call add-child-to-list(*list, "Jane", "Doe")
 
-    if list::size ~= 1 then
-        print "Something went wrong."
-    end
+    .*if list::size ~= 1 then
+    .*    print "Something went wrong."
+    .*end
 
     .* Fetch data from JSON endpoint (currently out-of-scope)
     .*declare [SomeStruct]data, [string(50)]error : fetch "https://some-website/api/some-endpoint.json"

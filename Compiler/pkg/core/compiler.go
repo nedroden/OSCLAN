@@ -1,25 +1,14 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 )
 
 type CompilerOptions struct {
 	SaveIntermediate bool
-}
-
-func saveOutput(filename string, body string) error {
-	os.RemoveAll("output")
-	os.Mkdir("output", 0755)
-
-	if err := os.WriteFile(fmt.Sprintf("output/%s", filename), []byte(body), 0755); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func GenerateIl(options CompilerOptions) error {
@@ -37,12 +26,17 @@ func GenerateIl(options CompilerOptions) error {
 		return err
 	}
 
+	os.RemoveAll("output")
+	os.Mkdir("output", 0755)
+
 	var tokens []Token
 	if tokens, err = tokenizer.GetTokens(); err != nil {
 		return err
 	}
 
-	if err = saveTokens(tokens, target); err != nil {
+	if bytes, err := json.MarshalIndent(tokens, "", "\t"); err == nil {
+		os.WriteFile(fmt.Sprintf("output/%s.tokens.json", target), bytes, 0644)
+	} else {
 		return err
 	}
 
@@ -51,25 +45,13 @@ func GenerateIl(options CompilerOptions) error {
 	}
 
 	var ast AstTreeNode
-	if _, err = parser.GenerateAst(); err != nil {
+	if ast, err = parser.GenerateAst(); err != nil {
 		return err
 	}
 
-	if err := saveOutput(fmt.Sprintf("%s_ast", target), ast.ToString()); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func saveTokens(tokens []Token, target string) error {
-	var sb strings.Builder
-
-	for _, token := range tokens {
-		sb.WriteString(fmt.Sprintf("%s\n", token.ToString()))
-	}
-
-	if err := saveOutput(fmt.Sprintf("%s_tokens", target), sb.String()); err != nil {
+	if bytes, err := json.MarshalIndent(ast, "", "\t"); err == nil {
+		os.WriteFile(fmt.Sprintf("output/%s.ast.json", target), bytes, 0644)
+	} else {
 		return err
 	}
 
