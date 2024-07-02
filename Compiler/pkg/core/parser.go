@@ -27,6 +27,7 @@ const (
 	ntField
 	ntArgument
 	ntAssignment
+	ntDeclaration
 	ntVariable
 	ntAllocation
 	ntScalar
@@ -46,6 +47,7 @@ var nodeStringMapping = map[AstNodeType]string{
 	ntField:         "Field",
 	ntArgument:      "Argument",
 	ntAssignment:    "Assignment",
+	ntDeclaration:   "Declaration",
 	ntVariable:      "Variable",
 	ntAllocation:    "Allocation",
 	ntScalar:        "Scalar",
@@ -118,8 +120,6 @@ func (p *Parser) consume(tokenType TokenType) (Token, error) {
 		p.CurrentTokenIndex++
 		p.CurrentToken = p.Tokens[p.CurrentTokenIndex]
 	}
-
-	fmt.Printf("-> Consumed token of type '%s' with value '%s'\n", TokenTypeToString(oldToken.Type), oldToken.Value)
 
 	return oldToken, nil
 }
@@ -537,6 +537,8 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 			} else {
 				return AstTreeNode{}, err
 			}
+
+			assignmentNode.Type = ntDeclaration
 		}
 
 		// Variable name. In case of declarations only a single identifier is allowed

@@ -63,7 +63,7 @@ The language has the following (case-insensitive) keywords:
 - [ ] Refactoring
 - [ ] Semantic analyzer
 - [ ] Optimizer
-- [ ] Imports
+- [ ] Imports and modules
 - [ ] Statistics (e.g., number of tokens per token type)
 - [ ] Syntax highlighting in VS Code
 - [ ] Unit tests (once tokenizer and parser are done)

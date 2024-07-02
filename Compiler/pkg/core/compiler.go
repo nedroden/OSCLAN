@@ -53,12 +53,22 @@ func GenerateIl(options CompilerOptions) error {
 	}
 
 	if bytes, err := json.MarshalIndent(ast, "", "\t"); err == nil && options.SaveIntermediate {
-		os.WriteFile(fmt.Sprintf("output/%s.ast.json", target), bytes, 0755)
+		os.WriteFile(fmt.Sprintf("output/%s.ast-pre-sa.json", target), bytes, 0755)
 	} else {
 		return err
 	}
 
 	// Step 3: Semantic analysis
+	analyzer := InitializeAnalyzer(ast)
+	if ast, err = analyzer.Run(); err != nil {
+		return err
+	}
+
+	if bytes, err := json.MarshalIndent(ast, "", "\t"); err == nil && options.SaveIntermediate {
+		os.WriteFile(fmt.Sprintf("output/%s.ast-post-sa.json", target), bytes, 0755)
+	} else {
+		return err
+	}
 
 	// Step 4: Optimization
 
