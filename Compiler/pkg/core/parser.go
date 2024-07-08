@@ -31,6 +31,7 @@ const (
 	ntVariable
 	ntAllocation
 	ntScalar
+	ntString
 	ntDynOffset
 	ntPrint
 	ntRet
@@ -51,10 +52,11 @@ var nodeStringMapping = map[AstNodeType]string{
 	ntVariable:      "Variable",
 	ntAllocation:    "Allocation",
 	ntScalar:        "Scalar",
+	ntString:        "String",
 	ntDynOffset:     "DynOffset",
 	ntPrint:         "Print",
 	ntRet:           "Ret",
-	ntProcedureCall: "ntProcedureCall",
+	ntProcedureCall: "ProcedureCall",
 }
 
 func AstNodeTypeToString(nodeType AstNodeType) string {
@@ -71,7 +73,6 @@ type AstTreeNode struct {
 	Value     string
 	ValueType string
 	ValueSize uint8
-	Name      string
 	Offset    uint8
 	IsPointer bool
 }
@@ -83,7 +84,7 @@ func (n AstTreeNode) ToString() string {
 func (n AstTreeNode) ToStringWithIndentation(level int) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("<AstNode Type='%s' Value='%s' />\n", AstNodeTypeToString(n.Type), n.Value))
+	sb.WriteString(fmt.Sprintf("[%s] '%s'\n", AstNodeTypeToString(n.Type), n.Value))
 
 	for _, child := range n.Children {
 		sb.WriteString(fmt.Sprintf("%s%s", strings.Repeat("\t", level), child.ToStringWithIndentation(level+1)))
@@ -258,13 +259,13 @@ func (p *Parser) parseStructure() (AstTreeNode, error) {
 
 	for !p.isAt(ttEOF) && !p.isAt(ttEnd) {
 		field := AstTreeNode{Type: ntField}
-		typeNode, err := p.parseType(&field)
+		typeNode, err := p.parseType()
 
 		if err != nil {
 			return AstTreeNode{}, err
 		}
 
-		field.Children = append(field.Children, *typeNode)
+		field.Children = append(field.Children, typeNode)
 
 		if typeNode.Type == ntStructure {
 			subStructure, err := p.parseImplicitStructure()
@@ -312,13 +313,13 @@ func (p *Parser) parseImplicitStructure() (AstTreeNode, error) {
 
 	for !p.isAt(ttEOF) && !p.isAt(ttEnd) {
 		field := AstTreeNode{Type: ntField}
-		typeNode, err := p.parseType(&field)
+		typeNode, err := p.parseType()
 
 		if err != nil {
 			return AstTreeNode{}, err
 		}
 
-		node.Children = append(node.Children, *typeNode)
+		node.Children = append(node.Children, typeNode)
 
 		if typeNode.Type == ntStructure {
 			subStructure, err := p.parseImplicitStructure()
@@ -353,11 +354,11 @@ func (p *Parser) parseProcedure() (AstTreeNode, error) {
 	var err error
 
 	// Get the return type of the procedure
-	var returnTypeNode *AstTreeNode
-	if returnTypeNode, err = p.parseType(&node); err != nil {
+	var returnTypeNode AstTreeNode
+	if returnTypeNode, err = p.parseType(); err != nil {
 		return AstTreeNode{}, err
 	}
-	node.Children = append(node.Children, *returnTypeNode)
+	node.Children = append(node.Children, returnTypeNode)
 
 	if _, err = p.consume(ttDoubleColon); err != nil {
 		return AstTreeNode{}, err
@@ -385,8 +386,8 @@ func (p *Parser) parseProcedure() (AstTreeNode, error) {
 		argumentNode := AstTreeNode{Type: ntArgument}
 
 		// Argument type
-		var typeNode *AstTreeNode
-		if typeNode, err = p.parseType(&argumentNode); err != nil {
+		var typeNode AstTreeNode
+		if typeNode, err = p.parseType(); err != nil {
 			return AstTreeNode{}, err
 		}
 		argumentNode.ValueType = typeNode.Value
@@ -505,7 +506,7 @@ func (p *Parser) parseAutoMemoryAllocation() (AstTreeNode, error) {
 
 	node := AstTreeNode{Type: ntAllocation}
 
-	if token, err := p.parseType(&node); err == nil {
+	if token, err := p.parseType(); err == nil {
 		node.ValueType = token.Value
 	} else {
 		return AstTreeNode{}, err
@@ -516,10 +517,11 @@ func (p *Parser) parseAutoMemoryAllocation() (AstTreeNode, error) {
 
 func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperand bool) (AstTreeNode, error) {
 	assignmentNode := AstTreeNode{Type: ntAssignment}
-	variableNode := AstTreeNode{Type: ntVariable}
 	var err error
 
 	if !skipLeftOperand {
+		variableNode := AstTreeNode{Type: ntVariable}
+
 		// In case of structures, the left operand is not a variable but rather a field.
 		if isAnon {
 			variableNode.Type = ntField
@@ -532,7 +534,7 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 				return AstTreeNode{}, err
 			}
 
-			if typeNode, err := p.parseType(&variableNode); err == nil {
+			if typeNode, err := p.parseType(); err == nil {
 				variableNode.ValueType = typeNode.Value
 			} else {
 				return AstTreeNode{}, err
@@ -550,7 +552,7 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 			}
 		} else {
 			if identifierNode, err := p.getVariableName(); err == nil {
-				variableNode.Value = identifierNode.Value
+				variableNode = identifierNode
 			} else {
 				return AstTreeNode{}, err
 			}
@@ -559,6 +561,8 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 		if _, err = p.consume(ttColon); err != nil {
 			return AstTreeNode{}, err
 		}
+
+		assignmentNode.Children = append(assignmentNode.Children, variableNode)
 	}
 
 	var rightOperand AstTreeNode
@@ -578,7 +582,7 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 			return AstTreeNode{}, err
 		}
 	case ttString:
-		rightOperand = AstTreeNode{Type: ntScalar, ValueType: "string"}
+		rightOperand = AstTreeNode{Type: ntString, ValueType: "string"}
 
 		if token, err := p.consume(ttString); err == nil {
 			rightOperand.Value = token.Value
@@ -619,7 +623,7 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 	}
 
 	// Assign variable as left operand
-	assignmentNode.Children = append(assignmentNode.Children, variableNode, rightOperand)
+	assignmentNode.Children = append(assignmentNode.Children, rightOperand)
 
 	return assignmentNode, nil
 }
@@ -653,6 +657,8 @@ func (p *Parser) parseAnonDeclaration() (AstTreeNode, error) {
 				return AstTreeNode{}, err
 			}
 
+			declarationNode.Children = append(declarationNode.Children, assignmentNode)
+
 			continue
 		}
 
@@ -666,7 +672,7 @@ func (p *Parser) parseAnonDeclaration() (AstTreeNode, error) {
 	return declarationNode, nil
 }
 
-func (p *Parser) parseType(parent *AstTreeNode) (*AstTreeNode, error) {
+func (p *Parser) parseType() (AstTreeNode, error) {
 	node := AstTreeNode{
 		Type: ntType,
 	}
@@ -675,14 +681,14 @@ func (p *Parser) parseType(parent *AstTreeNode) (*AstTreeNode, error) {
 	var token Token
 
 	if _, err = p.consume(ttLbracket); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
 	if token, err = p.consume(ttIdentifier); err != nil {
 		// We might be dealing with a struct type (which is denoted by a dedicated token)
 		var structTypeError error
 		if token, structTypeError = p.consume(ttStruct); structTypeError != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 	}
 
@@ -696,61 +702,61 @@ func (p *Parser) parseType(parent *AstTreeNode) (*AstTreeNode, error) {
 
 	if p.isAt(ttLparen) {
 		if _, err = p.consume(ttLparen); err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 
 		if token, err = p.consume(ttNumber); err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 
 		var u64 uint64
 		if u64, err = strconv.ParseUint(token.Value, 10, 8); err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 
 		// TODO: Add check here for math.MaxUint8
 		node.ValueSize = uint8(u64)
 
 		if _, err = p.consume(ttRparen); err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 	}
 
 	// Is this a pointer?
 	if p.isAt(ttAsterisk) {
 		if _, err := p.consume(ttAsterisk); err != nil {
-			return &AstTreeNode{}, err
+			return AstTreeNode{}, err
 		}
 
 		node.IsPointer = true
 	}
 
 	if _, err = p.consume(ttRbracket); err != nil {
-		return &AstTreeNode{}, err
+		return AstTreeNode{}, err
 	}
 
-	parent.Children = append(parent.Children, node)
-
-	return &node, nil
+	return node, nil
 }
 
+// TODO: Fix this method (child nodes aren't added to the parent node)
 func (p *Parser) getVariableName() (AstTreeNode, error) {
 	node := AstTreeNode{Type: ntVariable}
 
 	if variable, err := p.consume(ttIdentifier); err == nil {
-		node.Name = variable.Value
+		node.Value = variable.Value
 	} else {
 		return AstTreeNode{}, err
 	}
 
-	childNode := node
+	lastChild := &node
+
 	for p.isAt(ttDoubleColon) {
 		if _, err := p.consume(ttDoubleColon); err != nil {
 			return AstTreeNode{}, err
 		}
 
 		if partialIdentifier, err := p.consume(ttIdentifier); err == nil {
-			childNode.Children = append(childNode.Children, AstTreeNode{Type: ntVariable, Name: partialIdentifier.Value})
+			lastChild.Children = append(lastChild.Children, AstTreeNode{Type: ntVariable, Value: partialIdentifier.Value})
 		} else {
 			return AstTreeNode{}, err
 		}
@@ -767,10 +773,10 @@ func (p *Parser) getVariableName() (AstTreeNode, error) {
 				if u64, err = strconv.ParseUint(offsetToken.Value, 10, 8); err != nil {
 					return AstTreeNode{}, err
 				}
-				childNode.Children[0].Offset = uint8(u64)
+				lastChild.Children[0].Offset = uint8(u64)
 			} else if variable, err := p.getVariableName(); err == nil {
 				variable.Type = ntDynOffset
-				childNode.Children[0].Children = append(childNode.Children[0].Children, variable)
+				lastChild.Children[0].Children = append(lastChild.Children[0].Children, variable)
 			} else {
 				return AstTreeNode{}, err
 			}
@@ -780,7 +786,7 @@ func (p *Parser) getVariableName() (AstTreeNode, error) {
 			}
 		}
 
-		childNode = childNode.Children[0]
+		lastChild = &(lastChild.Children[0])
 	}
 
 	return node, nil
@@ -795,7 +801,7 @@ func (p *Parser) parseProcedureCall() (AstTreeNode, error) {
 
 	// Name of the procedure
 	if token, err := p.consume(ttIdentifier); err == nil {
-		node.Name = token.Value
+		node.Value = token.Value
 	} else {
 		return AstTreeNode{}, err
 	}

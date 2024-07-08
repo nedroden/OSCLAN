@@ -57,6 +57,7 @@ func GenerateIl(options CompilerOptions) error {
 	} else {
 		return err
 	}
+	os.WriteFile(fmt.Sprintf("output/%s.ast-pre-sa.txt", target), []byte(ast.ToString()), 0755)
 
 	// Step 3: Semantic analysis
 	analyzer := InitializeAnalyzer(ast)
