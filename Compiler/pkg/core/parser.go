@@ -244,7 +244,7 @@ func (p *Parser) parseStructure() (AstTreeNode, error) {
 	var err error
 
 	node := AstTreeNode{
-		Type: ntProcedure,
+		Type: ntStructure,
 	}
 
 	if _, err := p.consume(ttStruct); err != nil {
@@ -536,6 +536,7 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 
 			if typeNode, err := p.parseType(); err == nil {
 				variableNode.ValueType = typeNode.Value
+				variableNode.ValueSize = typeNode.ValueSize
 			} else {
 				return AstTreeNode{}, err
 			}

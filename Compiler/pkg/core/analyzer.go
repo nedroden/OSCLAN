@@ -8,6 +8,7 @@ import (
 
 type Scope struct {
 	variables   map[string]Variable
+	customTypes map[string]CompositeType
 	parentScope *Scope
 	depth       int8
 }
@@ -15,6 +16,7 @@ type Scope struct {
 func CreateScope(parentScope *Scope, depth int8) *Scope {
 	return &Scope{
 		variables:   make(map[string]Variable),
+		customTypes: make(map[string]CompositeType),
 		parentScope: parentScope,
 		depth:       depth,
 	}
@@ -30,6 +32,7 @@ func (s Scope) InCurrentScope(name string) bool {
 
 func (s Scope) InScope(name string) bool {
 	if _, found := s.variables[name]; found {
+		fmt.Printf("Found variable with name '%s' in level '%d' scope\n", name, s.depth)
 		return true
 	}
 
@@ -43,7 +46,7 @@ func (s Scope) InScope(name string) bool {
 type Variable struct {
 	Name          string
 	UnmangledName string
-	Type          string
+	Type          ElementaryType
 	IsPointer     bool
 	SizeInBytes   uint64
 }
@@ -83,33 +86,102 @@ func (a *Analyzer) declareVariable(variable Variable) error {
 	return nil
 }
 
-func (a *Analyzer) RunOnNode(node *AstTreeNode) error {
+func (a *Analyzer) declareType(s CompositeType) error {
+	if a.CurrentScope.InCurrentScope(s.Name) {
+		return fmt.Errorf("cannot redeclare type '%s'", s.Name)
+	}
+
+	a.CurrentScope.customTypes[s.Name] = s
+
+	return nil
+}
+
+func (a *Analyzer) analyzeDeclaration(node *AstTreeNode) error {
+	var err error
+
+	if len(node.Children) != 2 {
+		return fmt.Errorf("expected assignment node to have two children")
+	}
+
+	variableChild := node.Children[0]
+	valueChild := node.Children[1]
+
+	variableType := GetElementaryType(variableChild.ValueType, variableChild.ValueSize)
+
+	// Type of the value assigned to the variable
+	var valueType ElementaryType
+	if valueType, err = GetImplicitType(valueChild); err != nil {
+		return err
+	}
+
+	// If the variable was declared with an implicit size, use the one from the value
+	if variableType.Size == 0 {
+		variableType.Size = valueType.Size
+	}
+
+	assignmentCompatibility := PerformAssignmentTypeCheck(variableType, valueType)
+	if assignmentCompatibility == Illegal {
+		return fmt.Errorf("operation %s <- %s is illegal", variableType.ToString(), valueType.ToString())
+	} else if assignmentCompatibility == LossOfInformation {
+		fmt.Printf("[WARNING]: operation %s <- %s might lead to loss of information\n", variableType.ToString(), valueType.ToString())
+	}
+
+	// Add the variable to the current scope
+	variable := Variable{
+		Name: variableChild.Value,
+		Type: variableType,
+	}
+
+	if err := a.declareVariable(variable); err != nil {
+		return err
+	}
+
+	fmt.Printf("declared variable '%s' with type '%s' and default value '%s'\n", variable.Name, variableType.ToString(), valueChild.Value)
+
+	return nil
+}
+
+func (a *Analyzer) analyzeStructDeclaration(node *AstTreeNode) error {
+	structType, err := GetCompositeType(*node)
+
+	if err != nil {
+		return err
+	}
+
+	if err := a.declareType(structType); err != nil {
+		return err
+	}
+
+	fmt.Printf("declared type '%s' with size '%d'\n", structType.Name, structType.GetSize())
+
+	return nil
+}
+
+func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
+	a.CurrentScope = scope
+	var err error
+
 	// Variable declaration
-	if node.Type == ntDeclaration {
-		if len(node.Children) != 2 {
-			return fmt.Errorf("expected assignment node to have two children")
-		}
-
-		variableChild := node.Children[0]
-		valueChild := node.Children[1]
-
-		variable := Variable{Name: variableChild.Value}
-
-		if err := a.declareVariable(variable); err != nil {
+	switch node.Type {
+	case ntStructure:
+		if err = a.analyzeStructDeclaration(node); err != nil {
 			return err
 		}
-
-		fmt.Printf("assigning variable '%s' a default value of '%s'\n", variableChild.Value, valueChild.Value)
-	} else if node.Type == ntVariable {
-		if variable, err := a.resolveVariable(node.Value); err == nil {
-			fmt.Printf("Successfully resolved variable with name '%s'\n", variable.UnmangledName)
-		} else {
+	case ntDeclaration:
+		if err = a.analyzeDeclaration(node); err != nil {
 			return err
 		}
 	}
+	// else if node.Type == ntVariable {
+	// 	if variable, err := a.resolveVariable(node.Value); err == nil {
+	// 		fmt.Printf("Successfully resolved variable with name '%s'\n", variable.UnmangledName)
+	// 	} else {
+	// 		return err
+	// 	}
+	// }
 
 	for _, child := range node.Children {
-		if err := a.RunOnNode(&child); err != nil {
+		if err := a.RunOnNode(&child, CreateScope(scope, scope.depth+1)); err != nil {
 			return err
 		}
 	}
@@ -118,7 +190,7 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode) error {
 }
 
 func (a *Analyzer) Run() (AstTreeNode, error) {
-	if err := a.RunOnNode(&a.Ast); err != nil {
+	if err := a.RunOnNode(&a.Ast, CreateScope(nil, 0)); err != nil {
 		return a.Ast, err
 	}
 

@@ -20,9 +20,11 @@ declare public [List]::init-list()
     declare [List]list : init [List]
     declare [int(8)]localSize : 1
 
+    declare [string]first-name : "John"
+
     list::size : localSize
     list::element(0) : declare anon
-        first-name : "John"
+        first-name
         last-name : "Doe"
     end
 
