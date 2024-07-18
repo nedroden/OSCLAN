@@ -23,7 +23,7 @@ func TypeToString(typeName TypeId) string {
 		return str
 	}
 
-	return "Unknown"
+	return "unknown"
 }
 
 type ElementaryType struct {
@@ -101,11 +101,16 @@ func GetImplicitType(node AstTreeNode) (ElementaryType, error) {
 func GetCompositeType(node AstTreeNode) (CompositeType, error) {
 	cType := CompositeType{Name: node.Value}
 
-	// TODO: afmaken; voor basistypen wordt de ValueSize nog niet goed geset/overgenomen.
 	for _, field := range node.Children {
 		if field.Type != ntStructure {
-			cType.Types = append(cType.Types, GetElementaryType(field.Value, field.ValueSize))
-		} else if compositeField, err := GetCompositeType(field); err != nil {
+			elementaryType := GetElementaryType(field.Value, field.ValueSize)
+
+			if len(field.Children) > 0 && field.Children[0].Type == ntType {
+				elementaryType.Size = field.Children[0].ValueSize
+			}
+
+			cType.Types = append(cType.Types, elementaryType)
+		} else if compositeField, err := GetCompositeType(field); err == nil {
 			cType.SubCompositeTypes = append(cType.SubCompositeTypes, compositeField)
 		} else {
 			return CompositeType{}, err

@@ -274,7 +274,9 @@ func (p *Parser) parseStructure() (AstTreeNode, error) {
 				return AstTreeNode{}, err
 			}
 
-			field.Children = append(field.Children, subStructure)
+			// field.Children = append(field.Children, subStructure)
+			node.Children = append(node.Children, subStructure)
+
 			continue
 		}
 
@@ -319,7 +321,7 @@ func (p *Parser) parseImplicitStructure() (AstTreeNode, error) {
 			return AstTreeNode{}, err
 		}
 
-		node.Children = append(node.Children, typeNode)
+		field.Children = append(field.Children, typeNode)
 
 		if typeNode.Type == ntStructure {
 			subStructure, err := p.parseImplicitStructure()
@@ -328,7 +330,8 @@ func (p *Parser) parseImplicitStructure() (AstTreeNode, error) {
 				return AstTreeNode{}, err
 			}
 
-			field.Children = append(field.Children, subStructure)
+			//field.Children = append(field.Children, subStructure)
+			node.Children = append(node.Children, subStructure)
 			continue
 		}
 
