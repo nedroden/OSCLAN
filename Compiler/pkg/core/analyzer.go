@@ -2,7 +2,9 @@ package core
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/jedib0t/go-pretty/table"
 	"github.com/nedroden/nasgo/pkg/util"
 )
 
@@ -20,6 +22,24 @@ func CreateScope(parentScope *Scope, depth int8) *Scope {
 		parentScope: parentScope,
 		depth:       depth,
 	}
+}
+
+func (s Scope) PrintTable() {
+	writer := table.NewWriter()
+	writer.SetOutputMirror(os.Stdout)
+
+	writer.AppendHeader(table.Row{"Key", "Name (unmangled)", "Symbol type", "Type", "Size"})
+
+	for _, variable := range s.variables {
+		writer.AppendRow(table.Row{variable.Name, variable.UnmangledName, "Variable", variable.Type.ToString(), variable.Type.Size})
+	}
+
+	for _, vType := range s.customTypes {
+		writer.AppendRow(table.Row{vType.Name, "-", "Type", "-", vType.GetSize()})
+	}
+
+	fmt.Printf("Current scope (level %d):\n:", s.depth)
+	writer.Render()
 }
 
 func (s Scope) InCurrentScope(name string) bool {
@@ -181,9 +201,21 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 	// }
 
 	for _, child := range node.Children {
-		if err := a.RunOnNode(&child, CreateScope(scope, scope.depth+1)); err != nil {
+		subScope := scope
+
+		// Create subscope if this is a procedure or structure
+		if child.Type == ntStructure || child.Type == ntProcedure {
+			subScope = CreateScope(scope, scope.depth+1)
+		}
+
+		if err := a.RunOnNode(&child, subScope); err != nil {
 			return err
 		}
+	}
+
+	// For debugging purposes, display the resulting symbol table
+	if (node.Type == ntStructure || node.Type == ntProcedure) && len(a.CurrentScope.variables)+len(a.CurrentScope.customTypes) > 0 {
+		a.CurrentScope.PrintTable()
 	}
 
 	return nil
