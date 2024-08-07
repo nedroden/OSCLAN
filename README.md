@@ -1,6 +1,6 @@
-# Neoc
+# OSCLAN
 
-Compiler for Neoc (neo-COBOL), a business-oriented toy language that compiles to MSIL.
+Compiler for OSCLAN (Old-SChool LANguage), a business-oriented toy language that compiles to MSIL.
 
 ## Context
 

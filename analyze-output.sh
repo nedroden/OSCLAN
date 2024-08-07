@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-dotnet run --project=Neoc.OutputAnalyzer -- $@
+dotnet run --project=OSCLAN.OutputAnalyzer -- $@

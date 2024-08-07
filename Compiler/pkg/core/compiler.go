@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -17,11 +18,11 @@ func GenerateIl(options CompilerOptions) error {
 	var parser *Parser
 	var err error
 
-	if len(os.Args) < 2 {
+	if len(flag.Args()) < 1 {
 		return errors.New("target file not specified")
 	}
 
-	target := os.Args[1]
+	target := flag.Args()[0]
 
 	if tokenizer, err = InitTokenizer(target, "Examples"); err != nil {
 		return err
@@ -75,7 +76,7 @@ func GenerateIl(options CompilerOptions) error {
 
 	// Step 5: Code generation
 	generator, _ := InitGenerator(ast)
-	os.WriteFile(fmt.Sprintf("output/%s.s", strings.TrimSuffix(target, ".neoc")), []byte(generator.GenerateIl()), 0755)
+	os.WriteFile(fmt.Sprintf("output/%s.s", strings.TrimSuffix(target, ".oscl")), []byte(generator.GenerateIl()), 0755)
 
 	return nil
 }

@@ -3,9 +3,9 @@
 set -e
 
 echo "[ ] Building compiler..."
-go build -C Compiler -o ../neocc cmd/cli/main.go
+go build -C Compiler -o ../osclanc cmd/cli/main.go
 echo "Done"
 
 echo "[ ] Building analyzer..."
-dotnet build Neoc.OutputAnalyzer
+dotnet build OSCLAN.OutputAnalyzer
 echo "Done"

@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
 	"github.com/nedroden/nasgo/pkg/util"
@@ -87,6 +88,8 @@ func InitializeAnalyzer(tree AstTreeNode) *Analyzer {
 
 func (a *Analyzer) resolveVariable(name string) (Variable, error) {
 	if variable, found := (*a.CurrentScope).variables[util.Mangle(name)]; found {
+		fmt.Printf("Successfully resolved variable with name '%s'\n", variable.UnmangledName)
+
 		return variable, nil
 	}
 
@@ -96,6 +99,10 @@ func (a *Analyzer) resolveVariable(name string) (Variable, error) {
 func (a *Analyzer) declareVariable(variable Variable) error {
 	variable.UnmangledName = variable.Name
 	variable.Name = util.Mangle(variable.Name)
+
+	if len(strings.TrimSpace(variable.Name)) == 0 {
+		return fmt.Errorf("compiler error in variable node creation. variable has no name")
+	}
 
 	if a.CurrentScope.InCurrentScope(variable.Name) {
 		return fmt.Errorf("cannot redeclare variable '%s'", variable.Name)
@@ -168,11 +175,17 @@ func (a *Analyzer) analyzeStructDeclaration(node *AstTreeNode) error {
 		return err
 	}
 
+	// This is an anonymous structure, hence we cannot declare it (nor do we need to).
+	if len(strings.TrimSpace(structType.Name)) == 0 {
+		fmt.Println("Skipped declaration of anonymous structure")
+		return nil
+	}
+
 	if err := a.declareType(structType); err != nil {
 		return err
 	}
 
-	fmt.Printf("declared type '%s' with size '%d'\n", structType.Name, structType.GetSize())
+	fmt.Printf("declared structure type '%s' with size '%d'\n", structType.Name, structType.GetSize())
 
 	return nil
 }
@@ -191,14 +204,11 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 		if err = a.analyzeDeclaration(node); err != nil {
 			return err
 		}
+	case ntVariable:
+		if _, err := a.resolveVariable(node.Value); err != nil {
+			return err
+		}
 	}
-	// else if node.Type == ntVariable {
-	// 	if variable, err := a.resolveVariable(node.Value); err == nil {
-	// 		fmt.Printf("Successfully resolved variable with name '%s'\n", variable.UnmangledName)
-	// 	} else {
-	// 		return err
-	// 	}
-	// }
 
 	for _, child := range node.Children {
 		subScope := scope

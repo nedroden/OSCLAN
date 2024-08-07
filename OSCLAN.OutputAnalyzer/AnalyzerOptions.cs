@@ -1,7 +1,7 @@
 using System.IO;
 using CommandLine;
 
-namespace Neoc.OutputAnalyzer;
+namespace OSCLAN.OutputAnalyzer;
 
 public class AnalyzerOptions
 {

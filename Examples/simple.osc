@@ -41,7 +41,7 @@ declare private [void]::add-child-to-list([List*] list, [string(20)] first-name,
 end
 
 declare public [uint(4)]::main()
-    print "Neoc (Neo-COBOL) example"
+    print "OSCLAN example"
 
     declare [List]list : call init-list()
     call add-child-to-list(*list, "Jane", "Doe")
