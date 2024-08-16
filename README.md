@@ -2,6 +2,8 @@
 
 Compiler for OSCLAN (Old-SChool LANguage), a business-oriented toy language that compiles to MSIL.
 
+![Build](https://github.com/nedroden/OSCLAN/actions/workflows/build.yml/badge.svg) ![Linter](https://github.com/nedroden/OSCLAN/actions/workflows/golangci-lint.yml/badge.svg)
+
 ## Context
 
 I have been wanting to build a compiler for some time, however the main challenge has been the code generation part. The original plan was to build a compiler for Apple Silicon chips, however for now the idea is to build something that compiles to MSIL. Once that is done, the idea is to introduce AArch64 code generation as well.

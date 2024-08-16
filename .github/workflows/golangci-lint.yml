@@ -1,4 +1,4 @@
-name: Golang Linter
+name: golangci-lint
 
 on:
   push:
@@ -9,8 +9,6 @@ on:
 
 permissions:
   contents: read
-  # Optional: allow read access to pull request. Use with `only-new-issues` option.
-  # pull-requests: read
 
 jobs:
   golangci:
@@ -26,3 +24,4 @@ jobs:
         with:
           version: v1.59
           working-directory: Compiler
+          args: ./...
