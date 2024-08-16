@@ -1,6 +1,6 @@
-module github.com/nedroden/nasgo
+module github.com/nedroden/OSCLAN
 
-go 1.21.3
+go 1.23.0
 
 require github.com/fatih/color v1.17.0
 

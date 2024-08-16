@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/fatih/color"
-	"github.com/nedroden/nasgo/pkg/core"
+	"github.com/nedroden/OSCLAN/pkg/core"
 )
 
 func writeError(err error) {

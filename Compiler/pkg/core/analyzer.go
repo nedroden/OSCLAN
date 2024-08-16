@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/jedib0t/go-pretty/table"
-	"github.com/nedroden/nasgo/pkg/util"
+	"github.com/nedroden/OSCLAN/pkg/util"
 )
 
 type Scope struct {
