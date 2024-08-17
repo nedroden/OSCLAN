@@ -680,7 +680,7 @@ func (p *Parser) getVariableName() (AstTreeNode, error) {
 		}
 
 		if partialIdentifier, err := p.consume(ttIdentifier); err == nil {
-			lastChild.Children = append(lastChild.Children, AstTreeNode{Type: ntVariable, Value: partialIdentifier.Value})
+			lastChild.Children = append(lastChild.Children, AstTreeNode{Type: ntField, Value: partialIdentifier.Value})
 		} else {
 			return AstTreeNode{}, err
 		}

@@ -1,6 +1,9 @@
 package core
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type TypeId int8
 
@@ -37,8 +40,16 @@ func (e ElementaryType) ToString() string {
 
 type CompositeType struct {
 	Name              string
-	Types             []ElementaryType
-	SubCompositeTypes []CompositeType
+	Types             map[string]ElementaryType
+	SubCompositeTypes map[string]CompositeType
+}
+
+func InitCompositeType(name string) CompositeType {
+	return CompositeType{
+		Name:              name,
+		Types:             make(map[string]ElementaryType),
+		SubCompositeTypes: make(map[string]CompositeType),
+	}
 }
 
 func (c CompositeType) GetSize() uint8 {
@@ -53,6 +64,20 @@ func (c CompositeType) GetSize() uint8 {
 	}
 
 	return size
+}
+
+func (c CompositeType) ToString() string {
+	result, err := json.MarshalIndent(c, "", "\t")
+
+	if err != nil {
+		return "<failed to convert type to string>"
+	}
+
+	return string(result)
+}
+
+func (c CompositeType) GenerateByteMap() string {
+	return "todo"
 }
 
 type TypeCompatibility int8
@@ -99,19 +124,19 @@ func GetImplicitType(node AstTreeNode) (ElementaryType, error) {
 }
 
 func GetCompositeType(node AstTreeNode) (CompositeType, error) {
-	cType := CompositeType{Name: node.Value}
+	cType := InitCompositeType(node.Value)
 
 	for _, field := range node.Children {
 		if field.Type != ntStructure {
 			elementaryType := GetElementaryType(field.Value, field.ValueSize)
 
 			if len(field.Children) > 0 && field.Children[0].Type == ntType {
-				elementaryType.Size = field.Children[0].ValueSize
+				elementaryType = GetElementaryType(field.Children[0].Value, field.Children[0].ValueSize)
 			}
 
-			cType.Types = append(cType.Types, elementaryType)
+			cType.Types[field.Value] = elementaryType
 		} else if compositeField, err := GetCompositeType(field); err == nil {
-			cType.SubCompositeTypes = append(cType.SubCompositeTypes, compositeField)
+			cType.SubCompositeTypes[field.Value] = compositeField
 		} else {
 			return CompositeType{}, err
 		}

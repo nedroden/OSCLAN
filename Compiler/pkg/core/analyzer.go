@@ -96,6 +96,12 @@ func (a *Analyzer) resolveVariable(name string) (Variable, error) {
 	return Variable{}, fmt.Errorf("unresolved variable '%s'", name)
 }
 
+// TODO: implement
+func (a *Analyzer) resolveField(name string) (CompositeType, error) {
+
+	return CompositeType{}, nil
+}
+
 func (a *Analyzer) declareVariable(variable Variable) error {
 	variable.UnmangledName = variable.Name
 	variable.Name = util.Mangle(variable.Name)
@@ -119,6 +125,8 @@ func (a *Analyzer) declareType(s CompositeType) error {
 	}
 
 	a.CurrentScope.customTypes[s.Name] = s
+
+	fmt.Println(s.ToString())
 
 	return nil
 }
@@ -168,6 +176,7 @@ func (a *Analyzer) analyzeDeclaration(node *AstTreeNode) error {
 	return nil
 }
 
+// TODO: Declare fields separately
 func (a *Analyzer) analyzeStructDeclaration(node *AstTreeNode) error {
 	structType, err := GetCompositeType(*node)
 

@@ -2,7 +2,7 @@
 
 Compiler for OSCLAN (Old-SChool LANguage), a business-oriented toy language that compiles to MSIL.
 
-![Build](https://github.com/nedroden/OSCLAN/actions/workflows/build.yml/badge.svg) ![Linter](https://github.com/nedroden/OSCLAN/actions/workflows/golangci-lint.yml/badge.svg)
+![Build](https://github.com/nedroden/OSCLAN/actions/workflows/build.yml/badge.svg)
 
 ## Context
 
@@ -13,6 +13,12 @@ I have been wanting to build a compiler for some time, however the main challeng
 My experience with Go and compiler construction is somewhat limited, so if you have any thoughts, feel free to share them by opening up a pull request or an issue.
 
 Also, my main focus at this point is on getting things working, so the code will definitely not be as clean as it should be.
+
+## Usage
+
+1. Open a terminal
+2. `$ ./build.sh`
+3. `./osclanc -i simple.osc` to compile `Examples/simple.osc` (the directory is currently hardcoded)
 
 ## Language specifications
 
