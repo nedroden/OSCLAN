@@ -67,6 +67,7 @@ type AstTreeNode struct {
 	ValueSize uint8
 	Offset    uint8
 	IsPointer bool
+	Path      string
 }
 
 func (n AstTreeNode) ToString() string {

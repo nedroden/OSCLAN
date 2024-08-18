@@ -176,6 +176,7 @@ func (p *Parser) parseStructure() (AstTreeNode, error) {
 	}
 
 	node.Value = token.Value
+	node.Path = token.Value
 
 	for !p.isAt(ttEOF) && !p.isAt(ttEnd) {
 		field := AstTreeNode{Type: ntField}
@@ -188,7 +189,7 @@ func (p *Parser) parseStructure() (AstTreeNode, error) {
 		field.Children = append(field.Children, typeNode)
 
 		if typeNode.Type == ntStructure {
-			subStructure, err := p.parseImplicitStructure()
+			subStructure, err := p.parseImplicitStructure(node.Path)
 
 			if err != nil {
 				return AstTreeNode{}, err
@@ -207,6 +208,7 @@ func (p *Parser) parseStructure() (AstTreeNode, error) {
 		}
 
 		field.Value = identifier.Value
+		field.Path = fmt.Sprintf("%s::%s", node.Path, identifier.Value)
 		node.Children = append(node.Children, field)
 	}
 
@@ -218,7 +220,7 @@ func (p *Parser) parseStructure() (AstTreeNode, error) {
 }
 
 // TODO: Merge with the above function.
-func (p *Parser) parseImplicitStructure() (AstTreeNode, error) {
+func (p *Parser) parseImplicitStructure(path string) (AstTreeNode, error) {
 	var node = AstTreeNode{Type: ntStructure}
 	var err error
 
@@ -228,6 +230,7 @@ func (p *Parser) parseImplicitStructure() (AstTreeNode, error) {
 	}
 
 	node.Value = identifierToken.Value
+	node.Path = fmt.Sprintf("%s::%s", path, identifierToken.Value)
 
 	if _, err = p.consume(ttBegin); err != nil {
 		return AstTreeNode{}, err
@@ -244,7 +247,7 @@ func (p *Parser) parseImplicitStructure() (AstTreeNode, error) {
 		field.Children = append(field.Children, typeNode)
 
 		if typeNode.Type == ntStructure {
-			subStructure, err := p.parseImplicitStructure()
+			subStructure, err := p.parseImplicitStructure(node.Path)
 
 			if err != nil {
 				return AstTreeNode{}, err
@@ -262,6 +265,7 @@ func (p *Parser) parseImplicitStructure() (AstTreeNode, error) {
 		}
 
 		field.Value = identifier.Value
+		field.Path = fmt.Sprintf("%s::%s", node.Path, identifier.Value)
 		node.Children = append(node.Children, field)
 	}
 
@@ -668,6 +672,7 @@ func (p *Parser) getVariableName() (AstTreeNode, error) {
 
 	if variable, err := p.consume(ttIdentifier); err == nil {
 		node.Value = variable.Value
+		node.Path = variable.Value
 	} else {
 		return AstTreeNode{}, err
 	}
@@ -680,7 +685,11 @@ func (p *Parser) getVariableName() (AstTreeNode, error) {
 		}
 
 		if partialIdentifier, err := p.consume(ttIdentifier); err == nil {
-			lastChild.Children = append(lastChild.Children, AstTreeNode{Type: ntField, Value: partialIdentifier.Value})
+			lastChild.Children = append(lastChild.Children, AstTreeNode{
+				Type:  ntField,
+				Value: partialIdentifier.Value,
+				Path:  fmt.Sprintf("%s::%s", lastChild.Path, partialIdentifier.Value),
+			})
 		} else {
 			return AstTreeNode{}, err
 		}

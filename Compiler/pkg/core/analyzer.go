@@ -11,7 +11,7 @@ import (
 
 type Scope struct {
 	variables   map[string]Variable
-	customTypes map[string]CompositeType
+	customTypes map[string]Type
 	parentScope *Scope
 	depth       int8
 }
@@ -19,7 +19,7 @@ type Scope struct {
 func CreateScope(parentScope *Scope, depth int8) *Scope {
 	return &Scope{
 		variables:   make(map[string]Variable),
-		customTypes: make(map[string]CompositeType),
+		customTypes: make(map[string]Type),
 		parentScope: parentScope,
 		depth:       depth,
 	}
@@ -67,7 +67,7 @@ func (s Scope) InScope(name string) bool {
 type Variable struct {
 	Name          string
 	UnmangledName string
-	Type          ElementaryType
+	Type          Type
 	IsPointer     bool
 	SizeInBytes   uint64
 }
@@ -88,18 +88,52 @@ func InitializeAnalyzer(tree AstTreeNode) *Analyzer {
 
 func (a *Analyzer) resolveVariable(name string) (Variable, error) {
 	if variable, found := (*a.CurrentScope).variables[util.Mangle(name)]; found {
-		fmt.Printf("Successfully resolved variable with name '%s'\n", variable.UnmangledName)
-
 		return variable, nil
 	}
 
 	return Variable{}, fmt.Errorf("unresolved variable '%s'", name)
 }
 
-// TODO: implement
-func (a *Analyzer) resolveField(name string) (CompositeType, error) {
+func (a *Analyzer) resolveTypeInScope(name string, scope Scope) (Type, error) {
+	// Type found in current scope?
+	if customType, found := scope.customTypes[util.Mangle(name)]; found {
+		return customType, nil
+	}
 
-	return CompositeType{}, nil
+	// Type found in parent scope?
+	if scope.parentScope != nil {
+		if customType, err := a.resolveTypeInScope(name, *scope.parentScope); err == nil {
+			return customType, nil
+		}
+	}
+
+	// Type not found in any scope
+	return Type{}, fmt.Errorf("unresolved type '%s'", name)
+}
+
+func (a *Analyzer) resolveType(name string) (Type, error) {
+	return a.resolveTypeInScope(name, *a.CurrentScope)
+}
+
+func (a *Analyzer) attemptFieldResolution(path string) error {
+	var foundType Type
+	parts := strings.Split(path, "::")
+
+	if variable, err := a.resolveVariable(parts[0]); err == nil {
+		foundType = variable.Type
+	} else {
+		return fmt.Errorf("could not resolve root type '%s'", parts[0])
+	}
+
+	for _, partialPath := range parts[1:] {
+		if subType, found := foundType.SubTypes[partialPath]; found {
+			foundType = subType
+		} else {
+			return fmt.Errorf("could not resolve path '%s'", path)
+		}
+	}
+
+	return nil
 }
 
 func (a *Analyzer) declareVariable(variable Variable) error {
@@ -119,14 +153,12 @@ func (a *Analyzer) declareVariable(variable Variable) error {
 	return nil
 }
 
-func (a *Analyzer) declareType(s CompositeType) error {
+func (a *Analyzer) declareType(s Type) error {
 	if a.CurrentScope.InCurrentScope(s.Name) {
 		return fmt.Errorf("cannot redeclare type '%s'", s.Name)
 	}
 
-	a.CurrentScope.customTypes[s.Name] = s
-
-	fmt.Println(s.ToString())
+	a.CurrentScope.customTypes[util.Mangle(s.Name)] = s
 
 	return nil
 }
@@ -141,10 +173,13 @@ func (a *Analyzer) analyzeDeclaration(node *AstTreeNode) error {
 	variableChild := node.Children[0]
 	valueChild := node.Children[1]
 
-	variableType := GetElementaryType(variableChild.ValueType, variableChild.ValueSize)
+	var variableType Type
+	if variableType, err = a.resolveType(variableChild.ValueType); err != nil {
+		return err
+	}
 
 	// Type of the value assigned to the variable
-	var valueType ElementaryType
+	var valueType Type
 	if valueType, err = GetImplicitType(valueChild); err != nil {
 		return err
 	}
@@ -171,14 +206,14 @@ func (a *Analyzer) analyzeDeclaration(node *AstTreeNode) error {
 		return err
 	}
 
-	fmt.Printf("declared variable '%s' with type '%s' and default value '%s'\n", variable.Name, variableType.ToString(), valueChild.Value)
+	// fmt.Printf("declared variable '%s' with type '%s' and default value '%s'\n", variable.Name, variableType.ToString(), valueChild.Value)
 
 	return nil
 }
 
 // TODO: Declare fields separately
 func (a *Analyzer) analyzeStructDeclaration(node *AstTreeNode) error {
-	structType, err := GetCompositeType(*node)
+	structType, err := GetType(*node)
 
 	if err != nil {
 		return err
@@ -186,7 +221,11 @@ func (a *Analyzer) analyzeStructDeclaration(node *AstTreeNode) error {
 
 	// This is an anonymous structure, hence we cannot declare it (nor do we need to).
 	if len(strings.TrimSpace(structType.Name)) == 0 {
-		fmt.Println("Skipped declaration of anonymous structure")
+		return nil
+	}
+
+	// This type has already been declared through its parent
+	if strings.Contains(node.Path, "::") {
 		return nil
 	}
 
@@ -194,7 +233,39 @@ func (a *Analyzer) analyzeStructDeclaration(node *AstTreeNode) error {
 		return err
 	}
 
-	fmt.Printf("declared structure type '%s' with size '%d'\n", structType.Name, structType.GetSize())
+	return nil
+}
+
+func (a *Analyzer) analyzeVariableReference(node *AstTreeNode) error {
+	// Check if the variable exists at all
+	if _, err := a.resolveVariable(node.Value); err != nil {
+		return err
+	}
+
+	for _, child := range node.Children {
+		if err := a.analyzeReferredField(child); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (a *Analyzer) analyzeReferredField(node AstTreeNode) error {
+	if err := a.attemptFieldResolution(node.Path); err != nil {
+		return err
+	}
+
+	// Check if the variable exists at all
+	for _, child := range node.Children {
+		if child.Type != ntField {
+			continue
+		}
+
+		if err := a.analyzeReferredField(child); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -214,15 +285,16 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 			return err
 		}
 	case ntVariable:
-		if _, err := a.resolveVariable(node.Value); err != nil {
+		if err := a.analyzeVariableReference(node); err != nil {
 			return err
 		}
+	default:
 	}
 
 	for _, child := range node.Children {
 		subScope := scope
 
-		// Create subscope if this is a procedure or structure
+		// Create sub scope if this is a procedure or structure
 		if child.Type == ntStructure || child.Type == ntProcedure {
 			subScope = CreateScope(scope, scope.depth+1)
 		}

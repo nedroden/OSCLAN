@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/json"
-	"fmt"
 )
 
 type TypeId int8
@@ -29,44 +28,30 @@ func TypeToString(typeName TypeId) string {
 	return "unknown"
 }
 
-type ElementaryType struct {
-	Name TypeId
-	Size uint8
+type Type struct {
+	Name     string
+	Size     uint8
+	SubTypes map[string]Type
 }
 
-func (e ElementaryType) ToString() string {
-	return fmt.Sprintf("%s(%d)", TypeToString(e.Name), e.Size)
-}
-
-type CompositeType struct {
-	Name              string
-	Types             map[string]ElementaryType
-	SubCompositeTypes map[string]CompositeType
-}
-
-func InitCompositeType(name string) CompositeType {
-	return CompositeType{
-		Name:              name,
-		Types:             make(map[string]ElementaryType),
-		SubCompositeTypes: make(map[string]CompositeType),
+func InitType(name string) Type {
+	return Type{
+		Name:     name,
+		SubTypes: make(map[string]Type),
 	}
 }
 
-func (c CompositeType) GetSize() uint8 {
-	var size uint8 = 0
+func (c Type) GetSize() uint8 {
+	var size uint8 = c.Size
 
-	for _, subType := range c.Types {
-		size += subType.Size
-	}
-
-	for _, subCompType := range c.SubCompositeTypes {
-		size += subCompType.GetSize()
+	for _, subType := range c.SubTypes {
+		size += subType.GetSize()
 	}
 
 	return size
 }
 
-func (c CompositeType) ToString() string {
+func (c Type) ToString() string {
 	result, err := json.MarshalIndent(c, "", "\t")
 
 	if err != nil {
@@ -76,7 +61,7 @@ func (c CompositeType) ToString() string {
 	return string(result)
 }
 
-func (c CompositeType) GenerateByteMap() string {
+func (c Type) GenerateByteMap() string {
 	return "todo"
 }
 
@@ -88,9 +73,9 @@ const (
 	LossOfInformation
 )
 
-func PerformAssignmentTypeCheck(to ElementaryType, from ElementaryType) TypeCompatibility {
+func PerformAssignmentTypeCheck(to Type, from Type) TypeCompatibility {
 	// int x = "something" is illegal
-	if from.Name == tpString && (to.Name == tpUint || to.Name == tpInt) {
+	if from.Name == "string" && (to.Name == "int" || to.Name == "uint") {
 		return Illegal
 	}
 
@@ -102,29 +87,29 @@ func PerformAssignmentTypeCheck(to ElementaryType, from ElementaryType) TypeComp
 	return Ok
 }
 
-func GetElementaryType(valueType string, size uint8) ElementaryType {
+func GetElementaryType(valueType string, size uint8) Type {
 	// TODO: uint/int distinction
 	if valueType == "int" || valueType == "uint" {
-		return ElementaryType{Name: tpInt, Size: size}
+		return Type{Name: "int", Size: size}
 	}
 
-	return ElementaryType{Name: tpString, Size: size}
+	return Type{Name: "string", Size: size}
 }
 
-func GetImplicitType(node AstTreeNode) (ElementaryType, error) {
+func GetImplicitType(node AstTreeNode) (Type, error) {
 	switch node.Type {
 	case ntString:
-		return ElementaryType{Name: tpString, Size: uint8(len(node.Value))}, nil
+		return Type{Name: "string", Size: uint8(len(node.Value))}, nil
 	case ntScalar:
-		return ElementaryType{Name: tpInt, Size: uint8(len(node.Value))}, nil
+		return Type{Name: "int", Size: uint8(len(node.Value))}, nil
 	default:
 		//return ElementaryType{}, fmt.Errorf("unable to determine implicit type")
-		return ElementaryType{}, nil
+		return Type{}, nil
 	}
 }
 
-func GetCompositeType(node AstTreeNode) (CompositeType, error) {
-	cType := InitCompositeType(node.Value)
+func GetType(node AstTreeNode) (Type, error) {
+	cType := InitType(node.Value)
 
 	for _, field := range node.Children {
 		if field.Type != ntStructure {
@@ -134,11 +119,11 @@ func GetCompositeType(node AstTreeNode) (CompositeType, error) {
 				elementaryType = GetElementaryType(field.Children[0].Value, field.Children[0].ValueSize)
 			}
 
-			cType.Types[field.Value] = elementaryType
-		} else if compositeField, err := GetCompositeType(field); err == nil {
-			cType.SubCompositeTypes[field.Value] = compositeField
+			cType.SubTypes[field.Value] = elementaryType
+		} else if compositeField, err := GetType(field); err == nil {
+			cType.SubTypes[field.Value] = compositeField
 		} else {
-			return CompositeType{}, err
+			return Type{}, err
 		}
 	}
 
