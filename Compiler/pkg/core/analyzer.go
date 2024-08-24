@@ -9,19 +9,44 @@ import (
 	"github.com/nedroden/OSCLAN/pkg/util"
 )
 
+// TODO: Hier iets mee doen.
+type ScopeStack []Scope
+
+func (s *ScopeStack) Peek() Scope {
+	if len(*s) == 0 {
+		return Scope{}
+	}
+
+	return (*s)[len(*s)-1]
+}
+
+func (s *ScopeStack) Pop() Scope {
+	if len(*s) == 0 {
+		return Scope{}
+	}
+
+	top := s.Peek()
+	*s = (*s)[1:]
+	return top
+}
+
+func (s *ScopeStack) Push(scope Scope) {
+	*s = append(*s, scope)
+}
+
 type Scope struct {
-	variables   map[string]Variable
-	customTypes map[string]Type
-	parentScope *Scope
-	depth       int8
+	Variables   map[string]Variable
+	CustomTypes map[string]Type
+	ParentScope *Scope
+	Depth       int8
 }
 
 func CreateScope(parentScope *Scope, depth int8) *Scope {
 	return &Scope{
-		variables:   make(map[string]Variable),
-		customTypes: make(map[string]Type),
-		parentScope: parentScope,
-		depth:       depth,
+		Variables:   make(map[string]Variable),
+		CustomTypes: make(map[string]Type),
+		ParentScope: parentScope,
+		Depth:       depth,
 	}
 }
 
@@ -31,20 +56,20 @@ func (s Scope) PrintTable() {
 
 	writer.AppendHeader(table.Row{"Key", "Name (unmangled)", "Symbol type", "Type", "Size"})
 
-	for _, variable := range s.variables {
+	for _, variable := range s.Variables {
 		writer.AppendRow(table.Row{variable.Name, variable.UnmangledName, "Variable", variable.Type.ToString(), variable.Type.Size})
 	}
 
-	for _, vType := range s.customTypes {
+	for _, vType := range s.CustomTypes {
 		writer.AppendRow(table.Row{vType.Name, "-", "Type", "-", vType.GetSize()})
 	}
 
-	fmt.Printf("Current scope (level %d):\n:", s.depth)
+	fmt.Printf("Current scope (level %d):\n:", s.Depth)
 	writer.Render()
 }
 
 func (s Scope) InCurrentScope(name string) bool {
-	if _, found := s.variables[name]; found {
+	if _, found := s.Variables[name]; found {
 		return true
 	}
 
@@ -52,16 +77,16 @@ func (s Scope) InCurrentScope(name string) bool {
 }
 
 func (s Scope) InScope(name string) bool {
-	if _, found := s.variables[name]; found {
-		fmt.Printf("Found variable with name '%s' in level '%d' scope\n", name, s.depth)
+	if _, found := s.Variables[name]; found {
+		fmt.Printf("Found variable with name '%s' in level '%d' scope\n", name, s.Depth)
 		return true
 	}
 
-	if s.parentScope == nil {
+	if s.ParentScope == nil {
 		return false
 	}
 
-	return s.parentScope.InScope(name)
+	return s.ParentScope.InScope(name)
 }
 
 type Variable struct {
@@ -75,6 +100,7 @@ type Variable struct {
 type Analyzer struct {
 	Ast          AstTreeNode
 	CurrentScope *Scope
+	RootScope    *Scope
 }
 
 func InitializeAnalyzer(tree AstTreeNode) *Analyzer {
@@ -83,11 +109,12 @@ func InitializeAnalyzer(tree AstTreeNode) *Analyzer {
 	return &Analyzer{
 		Ast:          tree,
 		CurrentScope: rootScope,
+		RootScope:    rootScope,
 	}
 }
 
 func (a *Analyzer) resolveVariable(name string) (Variable, error) {
-	if variable, found := (*a.CurrentScope).variables[util.Mangle(name)]; found {
+	if variable, found := (*a.CurrentScope).Variables[util.Mangle(name)]; found {
 		return variable, nil
 	}
 
@@ -96,13 +123,13 @@ func (a *Analyzer) resolveVariable(name string) (Variable, error) {
 
 func (a *Analyzer) resolveTypeInScope(name string, scope Scope) (Type, error) {
 	// Type found in current scope?
-	if customType, found := scope.customTypes[util.Mangle(name)]; found {
+	if customType, found := scope.CustomTypes[util.Mangle(name)]; found {
 		return customType, nil
 	}
 
 	// Type found in parent scope?
-	if scope.parentScope != nil {
-		if customType, err := a.resolveTypeInScope(name, *scope.parentScope); err == nil {
+	if scope.ParentScope != nil {
+		if customType, err := a.resolveTypeInScope(name, *scope.ParentScope); err == nil {
 			return customType, nil
 		}
 	}
@@ -148,17 +175,24 @@ func (a *Analyzer) declareVariable(variable Variable) error {
 		return fmt.Errorf("cannot redeclare variable '%s'", variable.Name)
 	}
 
-	a.CurrentScope.variables[variable.Name] = variable
+	a.CurrentScope.Variables[variable.Name] = variable
 
 	return nil
 }
 
 func (a *Analyzer) declareType(s Type) error {
-	if a.CurrentScope.InCurrentScope(s.Name) {
+	scope := a.CurrentScope
+
+	// Types declared at root level should be available everywhere
+	if a.CurrentScope.Depth == 1 {
+		scope = a.RootScope
+	}
+
+	if scope.InCurrentScope(s.Name) {
 		return fmt.Errorf("cannot redeclare type '%s'", s.Name)
 	}
 
-	a.CurrentScope.customTypes[util.Mangle(s.Name)] = s
+	scope.CustomTypes[util.Mangle(s.Name)] = s
 
 	return nil
 }
@@ -296,16 +330,18 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 
 		// Create sub scope if this is a procedure or structure
 		if child.Type == ntStructure || child.Type == ntProcedure {
-			subScope = CreateScope(scope, scope.depth+1)
+			subScope = CreateScope(scope, scope.Depth+1)
 		}
 
 		if err := a.RunOnNode(&child, subScope); err != nil {
 			return err
 		}
+
+		a.CurrentScope = subScope
 	}
 
 	// For debugging purposes, display the resulting symbol table
-	if (node.Type == ntStructure || node.Type == ntProcedure) && len(a.CurrentScope.variables)+len(a.CurrentScope.customTypes) > 0 {
+	if (node.Type == ntStructure || node.Type == ntProcedure) && len(a.CurrentScope.Variables)+len(a.CurrentScope.CustomTypes) > 0 {
 		a.CurrentScope.PrintTable()
 	}
 
@@ -313,7 +349,12 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 }
 
 func (a *Analyzer) Run() (AstTreeNode, error) {
-	if err := a.RunOnNode(&a.Ast, CreateScope(nil, 0)); err != nil {
+	// TODO: Find a cleaner way to declare built-in types
+	_ = a.declareType(Type{Name: "int", Size: 0})
+	_ = a.declareType(Type{Name: "uint", Size: 0})
+	_ = a.declareType(Type{Name: "string", Size: 0})
+
+	if err := a.RunOnNode(&a.Ast, a.CurrentScope); err != nil {
 		return a.Ast, err
 	}
 
