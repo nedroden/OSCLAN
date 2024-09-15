@@ -2,151 +2,28 @@ package core
 
 import (
 	"fmt"
-	"os"
 	"strings"
-
-	"github.com/jedib0t/go-pretty/table"
-	"github.com/nedroden/OSCLAN/pkg/util"
 )
 
-// TODO: Hier iets mee doen.
-type ScopeStack []Scope
-
-func (s *ScopeStack) Peek() Scope {
-	if len(*s) == 0 {
-		return Scope{}
-	}
-
-	return (*s)[len(*s)-1]
-}
-
-func (s *ScopeStack) Pop() Scope {
-	if len(*s) == 0 {
-		return Scope{}
-	}
-
-	top := s.Peek()
-	*s = (*s)[1:]
-	return top
-}
-
-func (s *ScopeStack) Push(scope Scope) {
-	*s = append(*s, scope)
-}
-
-type Scope struct {
-	Variables   map[string]Variable
-	CustomTypes map[string]Type
-	ParentScope *Scope
-	Depth       int8
-}
-
-func CreateScope(parentScope *Scope, depth int8) *Scope {
-	return &Scope{
-		Variables:   make(map[string]Variable),
-		CustomTypes: make(map[string]Type),
-		ParentScope: parentScope,
-		Depth:       depth,
-	}
-}
-
-func (s Scope) PrintTable() {
-	writer := table.NewWriter()
-	writer.SetOutputMirror(os.Stdout)
-
-	writer.AppendHeader(table.Row{"Key", "Name (unmangled)", "Symbol type", "Type", "Size"})
-
-	for _, variable := range s.Variables {
-		writer.AppendRow(table.Row{variable.Name, variable.UnmangledName, "Variable", variable.Type.ToString(), variable.Type.Size})
-	}
-
-	for _, vType := range s.CustomTypes {
-		writer.AppendRow(table.Row{vType.Name, "-", "Type", "-", vType.GetSize()})
-	}
-
-	fmt.Printf("Current scope (level %d):\n:", s.Depth)
-	writer.Render()
-}
-
-func (s Scope) InCurrentScope(name string) bool {
-	if _, found := s.Variables[name]; found {
-		return true
-	}
-
-	return false
-}
-
-func (s Scope) InScope(name string) bool {
-	if _, found := s.Variables[name]; found {
-		fmt.Printf("Found variable with name '%s' in level '%d' scope\n", name, s.Depth)
-		return true
-	}
-
-	if s.ParentScope == nil {
-		return false
-	}
-
-	return s.ParentScope.InScope(name)
-}
-
-type Variable struct {
-	Name          string
-	UnmangledName string
-	Type          Type
-	IsPointer     bool
-	SizeInBytes   uint64
-}
-
 type Analyzer struct {
-	Ast          AstTreeNode
-	CurrentScope *Scope
-	RootScope    *Scope
+	Ast    AstTreeNode
+	Scopes ScopeStack
 }
 
 func InitializeAnalyzer(tree AstTreeNode) *Analyzer {
-	rootScope := CreateScope(nil, 0)
+	rootScope := CreateScope(0)
 
 	return &Analyzer{
-		Ast:          tree,
-		CurrentScope: rootScope,
-		RootScope:    rootScope,
+		Ast:    tree,
+		Scopes: ScopeStack{*rootScope},
 	}
-}
-
-func (a *Analyzer) resolveVariable(name string) (Variable, error) {
-	if variable, found := (*a.CurrentScope).Variables[util.Mangle(name)]; found {
-		return variable, nil
-	}
-
-	return Variable{}, fmt.Errorf("unresolved variable '%s'", name)
-}
-
-func (a *Analyzer) resolveTypeInScope(name string, scope Scope) (Type, error) {
-	// Type found in current scope?
-	if customType, found := scope.CustomTypes[util.Mangle(name)]; found {
-		return customType, nil
-	}
-
-	// Type found in parent scope?
-	if scope.ParentScope != nil {
-		if customType, err := a.resolveTypeInScope(name, *scope.ParentScope); err == nil {
-			return customType, nil
-		}
-	}
-
-	// Type not found in any scope
-	return Type{}, fmt.Errorf("unresolved type '%s'", name)
-}
-
-func (a *Analyzer) resolveType(name string) (Type, error) {
-	return a.resolveTypeInScope(name, *a.CurrentScope)
 }
 
 func (a *Analyzer) attemptFieldResolution(path string) error {
 	var foundType Type
 	parts := strings.Split(path, "::")
 
-	if variable, err := a.resolveVariable(parts[0]); err == nil {
+	if variable, err := a.Scopes.ResolveVariable(parts[0]); err == nil {
 		foundType = variable.Type
 	} else {
 		return fmt.Errorf("could not resolve root type '%s'", parts[0])
@@ -163,40 +40,6 @@ func (a *Analyzer) attemptFieldResolution(path string) error {
 	return nil
 }
 
-func (a *Analyzer) declareVariable(variable Variable) error {
-	variable.UnmangledName = variable.Name
-	variable.Name = util.Mangle(variable.Name)
-
-	if len(strings.TrimSpace(variable.Name)) == 0 {
-		return fmt.Errorf("compiler error in variable node creation. variable has no name")
-	}
-
-	if a.CurrentScope.InCurrentScope(variable.Name) {
-		return fmt.Errorf("cannot redeclare variable '%s'", variable.Name)
-	}
-
-	a.CurrentScope.Variables[variable.Name] = variable
-
-	return nil
-}
-
-func (a *Analyzer) declareType(s Type) error {
-	scope := a.CurrentScope
-
-	// Types declared at root level should be available everywhere
-	if a.CurrentScope.Depth == 1 {
-		scope = a.RootScope
-	}
-
-	if scope.InCurrentScope(s.Name) {
-		return fmt.Errorf("cannot redeclare type '%s'", s.Name)
-	}
-
-	scope.CustomTypes[util.Mangle(s.Name)] = s
-
-	return nil
-}
-
 func (a *Analyzer) analyzeDeclaration(node *AstTreeNode) error {
 	var err error
 
@@ -208,7 +51,7 @@ func (a *Analyzer) analyzeDeclaration(node *AstTreeNode) error {
 	valueChild := node.Children[1]
 
 	var variableType Type
-	if variableType, err = a.resolveType(variableChild.ValueType); err != nil {
+	if variableType, err = a.Scopes.ResolveType(variableChild.ValueType); err != nil {
 		return err
 	}
 
@@ -236,7 +79,7 @@ func (a *Analyzer) analyzeDeclaration(node *AstTreeNode) error {
 		Type: variableType,
 	}
 
-	if err := a.declareVariable(variable); err != nil {
+	if err := a.Scopes.DeclareVariable(variable); err != nil {
 		return err
 	}
 
@@ -263,7 +106,38 @@ func (a *Analyzer) analyzeStructDeclaration(node *AstTreeNode) error {
 		return nil
 	}
 
-	if err := a.declareType(structType); err != nil {
+	if err := a.Scopes.DeclareType(structType); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *Analyzer) analyzeArgumentDeclaration(node *AstTreeNode) error {
+	var err error
+	var variableType Type
+
+	if children := len(node.Children); children != 1 {
+		// Too many children to properly interpret what we want
+		if children > 1 {
+			return fmt.Errorf("invalid argument declaration")
+		}
+
+		// If there are no children at all we're talking about a directive
+		return nil
+	}
+
+	typeChild := node.Children[0]
+	if variableType, err = a.Scopes.ResolveType(typeChild.Value); err != nil {
+		return err
+	}
+
+	variable := Variable{
+		Name: node.Value,
+		Type: variableType,
+	}
+
+	if err := a.Scopes.DeclareVariable(variable); err != nil {
 		return err
 	}
 
@@ -272,10 +146,11 @@ func (a *Analyzer) analyzeStructDeclaration(node *AstTreeNode) error {
 
 func (a *Analyzer) analyzeVariableReference(node *AstTreeNode) error {
 	// Check if the variable exists at all
-	if _, err := a.resolveVariable(node.Value); err != nil {
+	if _, err := a.Scopes.ResolveVariable(node.Value); err != nil {
 		return err
 	}
 
+	// E.g., list::name::first-name
 	for _, child := range node.Children {
 		if err := a.analyzeReferredField(child); err != nil {
 			return err
@@ -305,7 +180,7 @@ func (a *Analyzer) analyzeReferredField(node AstTreeNode) error {
 }
 
 func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
-	a.CurrentScope = scope
+	a.Scopes.Push(*scope)
 	var err error
 
 	// Variable declaration
@@ -316,6 +191,10 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 		}
 	case ntDeclaration:
 		if err = a.analyzeDeclaration(node); err != nil {
+			return err
+		}
+	case ntArgument:
+		if err := a.analyzeArgumentDeclaration(node); err != nil {
 			return err
 		}
 	case ntVariable:
@@ -330,19 +209,18 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 
 		// Create sub scope if this is a procedure or structure
 		if child.Type == ntStructure || child.Type == ntProcedure {
-			subScope = CreateScope(scope, scope.Depth+1)
+			subScope = CreateScope(scope.Depth + 1)
 		}
 
 		if err := a.RunOnNode(&child, subScope); err != nil {
 			return err
 		}
-
-		a.CurrentScope = subScope
 	}
 
 	// For debugging purposes, display the resulting symbol table
-	if (node.Type == ntStructure || node.Type == ntProcedure) && len(a.CurrentScope.Variables)+len(a.CurrentScope.CustomTypes) > 0 {
-		a.CurrentScope.PrintTable()
+	currentScope := a.Scopes.Peek()
+	if (node.Type == ntStructure || node.Type == ntProcedure) && len(currentScope.Variables)+len(currentScope.CustomTypes) > 0 {
+		a.Scopes.Pop().PrintTable()
 	}
 
 	return nil
@@ -350,11 +228,11 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 
 func (a *Analyzer) Run() (AstTreeNode, error) {
 	// TODO: Find a cleaner way to declare built-in types
-	_ = a.declareType(Type{Name: "int", Size: 0})
-	_ = a.declareType(Type{Name: "uint", Size: 0})
-	_ = a.declareType(Type{Name: "string", Size: 0})
+	_ = a.Scopes.DeclareType(Type{Name: "int", Size: 0})
+	_ = a.Scopes.DeclareType(Type{Name: "uint", Size: 0})
+	_ = a.Scopes.DeclareType(Type{Name: "string", Size: 0})
 
-	if err := a.RunOnNode(&a.Ast, a.CurrentScope); err != nil {
+	if err := a.RunOnNode(&a.Ast, &a.Scopes[0]); err != nil {
 		return a.Ast, err
 	}
 

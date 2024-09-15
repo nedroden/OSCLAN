@@ -317,7 +317,7 @@ func (p *Parser) parseProcedure() (AstTreeNode, error) {
 		if typeNode, err = p.parseType(); err != nil {
 			return AstTreeNode{}, err
 		}
-		argumentNode.ValueType = typeNode.Value
+		argumentNode.Children = append(argumentNode.Children, typeNode)
 
 		// Argument name
 		var identifierNode Token
@@ -325,6 +325,8 @@ func (p *Parser) parseProcedure() (AstTreeNode, error) {
 			return AstTreeNode{}, err
 		}
 		argumentNode.Value = identifierNode.Value
+
+		node.Children = append(node.Children, argumentNode)
 	}
 
 	if _, err = p.consume(ttRparen); err != nil {
