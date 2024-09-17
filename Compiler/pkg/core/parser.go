@@ -449,12 +449,7 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 	var err error
 
 	if !skipLeftOperand {
-		variableNode := AstTreeNode{Type: ntVariable}
-
-		// In case of structures, the left operand is not a variable but rather a field.
-		if isAnon {
-			variableNode.Type = ntField
-		}
+		leftOperand := AstTreeNode{Type: ntVariable}
 
 		// Variable type. Note that if this is a declaration and the type is missing,
 		// an error will be thrown later.
@@ -464,8 +459,8 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 			}
 
 			if typeNode, err := p.parseType(); err == nil {
-				variableNode.ValueType = typeNode.Value
-				variableNode.ValueSize = typeNode.ValueSize
+				leftOperand.ValueType = typeNode.Value
+				leftOperand.ValueSize = typeNode.ValueSize
 			} else {
 				return AstTreeNode{}, err
 			}
@@ -476,13 +471,13 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 		// Variable name. In case of declarations only a single identifier is allowed
 		if isDeclaration {
 			if identifierNode, err := p.consume(ttIdentifier); err == nil {
-				variableNode.Value = identifierNode.Value
+				leftOperand.Value = identifierNode.Value
 			} else {
 				return AstTreeNode{}, err
 			}
 		} else {
 			if identifierNode, err := p.getVariableName(); err == nil {
-				variableNode = identifierNode
+				leftOperand = identifierNode
 			} else {
 				return AstTreeNode{}, err
 			}
@@ -492,7 +487,12 @@ func (p *Parser) parseAssignment(isDeclaration bool, isAnon bool, skipLeftOperan
 			return AstTreeNode{}, err
 		}
 
-		assignmentNode.Children = append(assignmentNode.Children, variableNode)
+		// In case of structures, the left operand is not a variable but rather a field.
+		if isAnon {
+			leftOperand.Type = ntField
+		}
+
+		assignmentNode.Children = append(assignmentNode.Children, leftOperand)
 	}
 
 	var rightOperand AstTreeNode
