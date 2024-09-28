@@ -112,6 +112,10 @@ func GetType(node AstTreeNode) (Type, error) {
 	cType := InitType(node.Value)
 
 	for _, field := range node.Children {
+		if field.Type == ntModifier {
+			continue
+		}
+
 		if field.Type != ntStructure {
 			elementaryType := GetElementaryType(field.Value, field.ValueSize)
 
@@ -126,6 +130,9 @@ func GetType(node AstTreeNode) (Type, error) {
 			return Type{}, err
 		}
 	}
+
+	// Trigger size update of complex types
+	cType.Size = cType.GetSize()
 
 	return cType, nil
 }

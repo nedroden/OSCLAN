@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 	"strings"
+
+	"github.com/nedroden/OSCLAN/pkg/util"
 )
 
 type Analyzer struct {
@@ -203,6 +205,8 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 		if err := a.analyzeArgumentDeclaration(node); err != nil {
 			return err
 		}
+	case ntDynOffset:
+		fallthrough
 	case ntVariable:
 		if err := a.analyzeVariableReference(node); err != nil {
 			return err
@@ -223,13 +227,46 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 		}
 	}
 
-	// For debugging purposes, display the resulting symbol table
-	currentScope := a.Scopes.Peek()
-	if (node.Type == ntStructure || node.Type == ntProcedure) && len(currentScope.Variables)+len(currentScope.CustomTypes) > 0 {
-		a.Scopes.Pop().PrintTable()
-	}
+	// For debugging purposes, display the resulting symbol table. Uncommented rather than
+	// removed to reenable this more easily.
+	//
+	// currentScope := a.Scopes.Peek()
+	// if (node.Type == ntStructure || node.Type == ntProcedure) && len(currentScope.Variables)+len(currentScope.CustomTypes) > 0 {
+	// 	a.Scopes.Pop().PrintTable()
+	// }
 
 	return nil
+}
+
+func (a *Analyzer) validEntryPointExists() bool {
+	var typeOk bool
+	var visibilityOk bool
+
+	for _, child := range a.Ast.Children {
+		if child.Type != ntProcedure {
+			continue
+		}
+
+		if strings.ToLower(child.Value) != "main" {
+			continue
+		}
+
+		for _, possibleType := range child.Children {
+			// Check the return type
+			if possibleType.Type == ntType && util.Mangle(possibleType.Value) == util.Mangle("uint") && possibleType.ValueSize == 4 {
+				typeOk = true
+				continue
+			}
+
+			// Check the access level
+			if possibleType.Type == ntModifier && strings.ToLower(possibleType.Value) == "public" {
+				visibilityOk = true
+				continue
+			}
+		}
+	}
+
+	return typeOk && visibilityOk
 }
 
 func (a *Analyzer) Run() (AstTreeNode, error) {
@@ -240,6 +277,11 @@ func (a *Analyzer) Run() (AstTreeNode, error) {
 
 	if err := a.RunOnNode(&a.Ast, &a.Scopes[0]); err != nil {
 		return a.Ast, err
+	}
+
+	// Ensure that we have a valid, accessible entry point
+	if !a.validEntryPointExists() {
+		return a.Ast, fmt.Errorf("program is missing entry point with signature \"public [uint(4)]::main()\"")
 	}
 
 	return a.Ast, nil

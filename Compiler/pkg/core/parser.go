@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -644,7 +645,11 @@ func (p *Parser) parseType() (AstTreeNode, error) {
 			return AstTreeNode{}, err
 		}
 
-		// TODO: Add check here for math.MaxUint8
+		// Offset must be a valid uint8
+		if u64 > math.MaxUint8 {
+			return AstTreeNode{}, fmt.Errorf("offset '%d' violates restriction %d <= %d", u64, u64, math.MaxUint8)
+		}
+
 		node.ValueSize = uint8(u64)
 
 		if _, err = p.consume(ttRparen); err != nil {
