@@ -128,6 +128,12 @@ func (a *Analyzer) analyzeArgumentDeclaration(node *AstTreeNode) error {
 	}
 
 	typeChild := node.Children[0]
+
+	// This is an argument being passed rather than declared
+	if typeChild.Type != ntType {
+		return nil
+	}
+
 	if variableType, err = a.Scopes.ResolveType(typeChild.Value); err != nil {
 		return err
 	}
