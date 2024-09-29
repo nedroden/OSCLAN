@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/nedroden/OSCLAN/pkg/util"
@@ -77,9 +78,17 @@ func (a *Analyzer) analyzeDeclaration(node *AstTreeNode) error {
 
 	// Add the variable to the current scope
 	variable := Variable{
-		Name: variableChild.Value,
-		Type: variableType,
+		Name:        variableChild.Value,
+		Type:        variableType,
+		SizeInBytes: uint64(variableType.GetSize()),
 	}
+
+	if variable.SizeInBytes > math.MaxUint64 {
+		return fmt.Errorf("variable with name '%s' is too large", variable.Name)
+	}
+
+	// Update the value size of the node
+	node.Children[0].ValueSize = uint64(variable.SizeInBytes)
 
 	if err := a.Scopes.DeclareVariable(variable); err != nil {
 		return err
@@ -132,7 +141,7 @@ func (a *Analyzer) analyzeArgumentDeclaration(node *AstTreeNode) error {
 	typeChild := node.Children[0]
 
 	// This is an argument being passed rather than declared
-	if typeChild.Type != ntType {
+	if typeChild.NodeType != ntType {
 		return nil
 	}
 
@@ -175,7 +184,7 @@ func (a *Analyzer) analyzeReferredField(node AstTreeNode) error {
 
 	// Check if the variable exists at all
 	for _, child := range node.Children {
-		if child.Type != ntField {
+		if child.NodeType != ntField {
 			continue
 		}
 
@@ -192,7 +201,7 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 	var err error
 
 	// Variable declaration
-	switch node.Type {
+	switch node.NodeType {
 	case ntStructure:
 		if err = a.analyzeStructDeclaration(node); err != nil {
 			return err
@@ -218,7 +227,7 @@ func (a *Analyzer) RunOnNode(node *AstTreeNode, scope *Scope) error {
 		subScope := scope
 
 		// Create sub scope if this is a procedure or structure
-		if child.Type == ntStructure || child.Type == ntProcedure {
+		if child.NodeType == ntStructure || child.NodeType == ntProcedure {
 			subScope = CreateScope(scope.Depth + 1)
 		}
 
@@ -243,7 +252,7 @@ func (a *Analyzer) validEntryPointExists() bool {
 	var visibilityOk bool
 
 	for _, child := range a.Ast.Children {
-		if child.Type != ntProcedure {
+		if child.NodeType != ntProcedure {
 			continue
 		}
 
@@ -253,13 +262,13 @@ func (a *Analyzer) validEntryPointExists() bool {
 
 		for _, possibleType := range child.Children {
 			// Check the return type
-			if possibleType.Type == ntType && util.Mangle(possibleType.Value) == util.Mangle("uint") && possibleType.ValueSize == 4 {
+			if possibleType.NodeType == ntType && util.Mangle(possibleType.Value) == util.Mangle("uint") && possibleType.ValueSize == 4 {
 				typeOk = true
 				continue
 			}
 
 			// Check the access level
-			if possibleType.Type == ntModifier && strings.ToLower(possibleType.Value) == "public" {
+			if possibleType.NodeType == ntModifier && strings.ToLower(possibleType.Value) == "public" {
 				visibilityOk = true
 				continue
 			}

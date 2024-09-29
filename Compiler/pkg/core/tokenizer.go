@@ -69,7 +69,10 @@ func (t *Tokenizer) IsAtWhiteSpace() bool {
 func (t *Tokenizer) Advance() {
 	t.Position.Offset++
 	t.Position.Column++
-	t.CurrentChar = t.Source[t.Position.Offset]
+
+	if t.Position.Offset < t.SourceLength {
+		t.CurrentChar = t.Source[t.Position.Offset]
+	}
 }
 
 func (t *Tokenizer) AdvanceTimes(times int) {

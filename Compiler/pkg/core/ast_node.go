@@ -60,14 +60,14 @@ func AstNodeTypeToString(nodeType AstNodeType) string {
 }
 
 type AstTreeNode struct {
-	Children  []AstTreeNode
-	Type      AstNodeType
+	NodeType  AstNodeType
 	Value     string
 	ValueType string
-	ValueSize uint8
+	ValueSize uint64
 	Offset    uint8
 	IsPointer bool
 	Path      string
+	Children  []AstTreeNode
 }
 
 func (n AstTreeNode) ToString() string {
@@ -77,7 +77,7 @@ func (n AstTreeNode) ToString() string {
 func (n AstTreeNode) ToStringWithIndentation(level int) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("[%s] '%s'\n", AstNodeTypeToString(n.Type), n.Value))
+	sb.WriteString(fmt.Sprintf("[%s] '%s'\n", AstNodeTypeToString(n.NodeType), n.Value))
 
 	for _, child := range n.Children {
 		sb.WriteString(fmt.Sprintf("%s%s", strings.Repeat("\t", level), child.ToStringWithIndentation(level+1)))

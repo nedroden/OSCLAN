@@ -1,12 +1,13 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/nedroden/OSCLAN/pkg/util"
 )
 
 type CompilerOptions struct {
@@ -37,7 +38,7 @@ func GenerateIl(options CompilerOptions) error {
 		return err
 	}
 
-	if bytes, err := json.MarshalIndent(tokens, "", "\t"); err == nil && options.SaveIntermediate {
+	if bytes, err := util.SerializeJson(tokens); err == nil && options.SaveIntermediate {
 		os.WriteFile(fmt.Sprintf("output/%s.tokens.json", target), bytes, 0755)
 	} else {
 		return err
@@ -53,7 +54,7 @@ func GenerateIl(options CompilerOptions) error {
 		return err
 	}
 
-	if bytes, err := json.MarshalIndent(ast, "", "\t"); err == nil && options.SaveIntermediate {
+	if bytes, err := util.SerializeJson(ast); err == nil && options.SaveIntermediate {
 		os.WriteFile(fmt.Sprintf("output/%s.ast-pre-sa.json", target), bytes, 0755)
 	} else {
 		return err
@@ -66,7 +67,7 @@ func GenerateIl(options CompilerOptions) error {
 		return err
 	}
 
-	if bytes, err := json.MarshalIndent(ast, "", "\t"); err == nil && options.SaveIntermediate {
+	if bytes, err := util.SerializeJson(ast); err == nil && options.SaveIntermediate {
 		os.WriteFile(fmt.Sprintf("output/%s.ast-post-sa.json", target), bytes, 0755)
 	} else {
 		return err

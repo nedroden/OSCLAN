@@ -30,7 +30,7 @@ func TypeToString(typeName TypeId) string {
 
 type Type struct {
 	Name     string
-	Size     uint8
+	Size     uint64
 	SubTypes map[string]Type
 }
 
@@ -41,8 +41,8 @@ func InitType(name string) Type {
 	}
 }
 
-func (c Type) GetSize() uint8 {
-	var size uint8 = c.Size
+func (c Type) GetSize() uint64 {
+	var size uint64 = c.Size
 
 	for _, subType := range c.SubTypes {
 		size += subType.GetSize()
@@ -87,7 +87,7 @@ func PerformAssignmentTypeCheck(to Type, from Type) TypeCompatibility {
 	return Ok
 }
 
-func GetElementaryType(valueType string, size uint8) Type {
+func GetElementaryType(valueType string, size uint64) Type {
 	// TODO: uint/int distinction
 	if valueType == "int" || valueType == "uint" {
 		return Type{Name: "int", Size: size}
@@ -97,11 +97,11 @@ func GetElementaryType(valueType string, size uint8) Type {
 }
 
 func GetImplicitType(node AstTreeNode) (Type, error) {
-	switch node.Type {
+	switch node.NodeType {
 	case ntString:
-		return Type{Name: "string", Size: uint8(len(node.Value))}, nil
+		return Type{Name: "string", Size: uint64(len(node.Value))}, nil
 	case ntScalar:
-		return Type{Name: "int", Size: uint8(len(node.Value))}, nil
+		return Type{Name: "int", Size: uint64(len(node.Value))}, nil
 	default:
 		//return ElementaryType{}, fmt.Errorf("unable to determine implicit type")
 		return Type{}, nil
@@ -112,14 +112,14 @@ func GetType(node AstTreeNode) (Type, error) {
 	cType := InitType(node.Value)
 
 	for _, field := range node.Children {
-		if field.Type == ntModifier {
+		if field.NodeType == ntModifier {
 			continue
 		}
 
-		if field.Type != ntStructure {
+		if field.NodeType != ntStructure {
 			elementaryType := GetElementaryType(field.Value, field.ValueSize)
 
-			if len(field.Children) > 0 && field.Children[0].Type == ntType {
+			if len(field.Children) > 0 && field.Children[0].NodeType == ntType {
 				elementaryType = GetElementaryType(field.Children[0].Value, field.Children[0].ValueSize)
 			}
 
