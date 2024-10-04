@@ -16,6 +16,6 @@ public static class Mangler
             Guids.Add(name, Guid.NewGuid());
         }
 
-        return Guids[name].ToString();
+        return Guids[name].ToString().Replace("-", "_");
     }
 }

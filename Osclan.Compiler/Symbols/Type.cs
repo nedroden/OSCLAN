@@ -12,7 +12,7 @@ public record Type
 
     public bool IsPointer { get; set; }
 
-    public Dictionary<string, Type> Fields { get; set; } = new();
-
     public bool IsArray { get; set; }
+
+    public Dictionary<string, Type> Fields { get; set; } = new();
 }

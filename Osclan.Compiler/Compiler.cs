@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using Osclan.Compiler.Analysis;
+using Osclan.Compiler.Generation;
+using Osclan.Compiler.Generation.Architecture;
 using Osclan.Compiler.Io;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Tokenization;
@@ -19,9 +21,9 @@ public class Compiler
     public void Run()
     {
         // Clean output directory
-        if (Directory.Exists(_options.OutputPath))
+        if (Directory.Exists(_options.TempFilePath))
         {
-            Directory.Delete(_options.OutputPath, true);
+            Directory.Delete(_options.TempFilePath, true);
         }
 
         Console.WriteLine("Starting compilation process...");
@@ -29,7 +31,7 @@ public class Compiler
         stopwatch.Start();
 
         // Step 1 - Tokenization
-        var tokenizer = new Tokenizer(_options, _options.OutputPath, _options.InputFile, new InputFileReader());
+        var tokenizer = new Tokenizer(_options, _options.TempFilePath, _options.InputFile, new InputFileReader());
         var tokens = tokenizer.Tokenize();
         SaveIntermediateFile($"{_options.InputFileName}_tokens.json", SerializeState(tokens));
 
@@ -48,7 +50,13 @@ public class Compiler
         // todo
 
         // Step 5 - Code generation
-        // todo
+        var generator = new Generator(ast, new AArch64Strategy(new Emitter()));
+        var il = generator.GenerateIl();
+        SaveIntermediateFile($"{_options.InputFileName}.s", il);
+
+        // Step 6 - Assembler and linker
+        var assembler = new Assembler.Assembler(Path.Combine(_options.TempFilePath, _options.InputFileName.Replace(".s", string.Empty)), _options.OutputPath);
+        assembler.Assemble();
 
         stopwatch.Stop();
         Console.WriteLine($"Compilation finished in {stopwatch.ElapsedMilliseconds} ms.");
@@ -64,7 +72,7 @@ public class Compiler
             return;
         }
 
-        var path = Path.Combine(_options.OutputPath, filename);
+        var path = Path.Combine(_options.TempFilePath, filename);
         var dirname = Path.GetDirectoryName(path);
         if (!Directory.Exists(dirname))
         {

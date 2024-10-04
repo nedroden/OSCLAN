@@ -132,19 +132,10 @@ public class Analyzer
     /// <param name="node">The argument node.</param>
     private void AnalyzeArgumentDeclaration(AstNode node)
     {
-        switch (node.Children.Count)
-        {
-            // Too many children to properly interpret what we want to accomplish here.
-            case > 1: throw new CompilerException("Expected argument node to have at most one child.");
+        var typeName = node.RawType;
 
-            // This is a directive.
-            case 0: return;
-        }
-
-        var typeName = node.Children[0].RawType;
-
-        // This is an argument being passed rather than declared.
-        if (string.IsNullOrWhiteSpace(typeName?.Name))
+        // This is an argument being passed rather than declared, or it's a directive argument.
+        if (typeName is null || string.IsNullOrWhiteSpace(typeName?.Name) || node.Children.Count > 0)
         {
             return;
         }

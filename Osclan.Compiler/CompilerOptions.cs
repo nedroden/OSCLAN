@@ -22,9 +22,13 @@ public class CompilerOptions
     }
     private string _inputFile = string.Empty;
 
-    [Option('o', "output", Required = false, Default = "output", HelpText = "The path to to save output to")]
-    public string OutputPath { get => _outputPath; set => _outputPath = Path.GetFullPath(value); }
-    private string _outputPath = string.Empty;
+    [Option('t', "temp", Required = false, Default = "output", HelpText = "The path to to save temp files to")]
+    public string TempFilePath { get => _tempFilePath; set => _tempFilePath = Path.GetFullPath(value); }
+    private string _tempFilePath = string.Empty;
 
     public string InputFileName { get; private set; } = string.Empty;
+
+    [Option('o', "output", Required = false, Default = "a.out", HelpText = "The name of the output file")]
+    public string OutputPath { get => _outputPath; set => _outputPath = Path.GetFullPath(value); }
+    private string _outputPath { get; set; } = string.Empty;
 }
