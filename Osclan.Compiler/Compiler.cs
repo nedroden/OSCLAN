@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using Osclan.Compiler.Analysis;
@@ -24,6 +25,8 @@ public class Compiler
         }
 
         Console.WriteLine("Starting compilation process...");
+        var stopwatch = new Stopwatch();
+        stopwatch.Start();
 
         // Step 1 - Tokenization
         var tokenizer = new Tokenizer(_options, _options.OutputPath, _options.InputFile, new InputFileReader());
@@ -47,7 +50,8 @@ public class Compiler
         // Step 5 - Code generation
         // todo
 
-        Console.WriteLine("Compilation finished.");
+        stopwatch.Stop();
+        Console.WriteLine($"Compilation finished in {stopwatch.ElapsedMilliseconds} ms.");
     }
 
     private static string SerializeState<T>(T ast) where T : class =>

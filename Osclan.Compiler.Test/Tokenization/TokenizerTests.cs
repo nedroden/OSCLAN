@@ -2,7 +2,7 @@ using NSubstitute;
 using Osclan.Compiler.Io;
 using Osclan.Compiler.Tokenization;
 
-namespace Osclan.Compiler.Test;
+namespace Osclan.Compiler.Test.Tokenization;
 
 public class TokenizerTests
 {

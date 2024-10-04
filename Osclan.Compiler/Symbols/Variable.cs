@@ -4,7 +4,7 @@ public record Variable
 {
     public required string Name { get; set; }
 
-    public required string UnmangledName { get; set; }
+    public string UnmangledName { get; set; } = string.Empty;
 
     public required string TypeName { get; set; }
 

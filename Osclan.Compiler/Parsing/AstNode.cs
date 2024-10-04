@@ -4,10 +4,19 @@ using System.Linq;
 
 namespace Osclan.Compiler.Parsing;
 
+/// <summary>
+/// Represents a node in the abstract syntax tree.
+/// </summary>
 public class AstNode
 {
+    /// <summary>
+    /// The type of the node.
+    /// </summary>
     public AstNodeType Type { get; set; }
 
+    /// <summary>
+    /// String representation of the node type, for intermediate serialization purposes.
+    /// </summary>
     public string TypeString => Enum.GetName(typeof(AstNodeType), Type) ?? "Unknown";
 
     /// <summary>
@@ -31,9 +40,15 @@ public class AstNode
     /// </summary>
     public List<Modifier> Modifiers { get; set; } = new();
 
+    /// <summary>
+    /// String representations of the modifiers, for intermediate serialization purposes.
+    /// </summary>
     public List<string> ModifierStrings =>
         Modifiers.Select(modifier => Enum.GetName(typeof(Modifier), modifier) ?? "Unknown").ToList();
 
+    /// <summary>
+    /// Whether or not the node represents a dereferenced pointer.
+    /// </summary>
     public bool IsDereferenced { get; set; }
 
     /// <summary>
@@ -41,6 +56,9 @@ public class AstNode
     /// </summary>
     public string? Path { get; set; }
 
+    /// <summary>
+    /// The path to the field, split into partial paths, e.g., (list)::element::first-name -> [element, first-name].
+    /// </summary>
     public List<PartialPath> PartialPaths =>
         Path?.Split("::").Select(partialPath =>
         {
@@ -61,7 +79,15 @@ public class AstNode
     /// </summary>
     public Guid? ResolvedIn { get; set; }
 
+    /// <summary>
+    /// The children of the node.
+    /// </summary>
     public List<AstNode> Children { get; set; } = [];
 }
 
+/// <summary>
+/// Represents a partial path to a field, e.g., elements_1
+/// </summary>
+/// <param name="Name">The string part of the path.</param>
+/// <param name="Offset">An offset, e.g., array element index.</param>
 public record PartialPath(string Name, uint? Offset);

@@ -305,7 +305,7 @@ public class Parser
                 assignmentNode.Type = AstNodeType.Declaration;
 
                 // The name of the variable
-                assignmentNode.Value = Consume(TokenType.Identifier).Value;
+                leftOperand.Value = Consume(TokenType.Identifier).Value;
             }
             else
             {

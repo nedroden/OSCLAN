@@ -23,10 +23,8 @@ public class TypeResolver
             }
 
             // Since this is the type itself, use its node's value as the name
-            type.UnmangledName = node.Value ?? string.Empty;
+            type.Name = node.Value ?? string.Empty;
         }
-
-        type.Name = Mangler.Mangle(type.UnmangledName);
 
         foreach (var child in node.Children)
         {

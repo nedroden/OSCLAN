@@ -7,6 +7,9 @@ using Osclan.Compiler.Io;
 
 namespace Osclan.Compiler.Tokenization;
 
+/// <summary>
+/// Given an input source file, converts the contents of that file into a series of tokens.
+/// </summary>
 public class Tokenizer
 {
     private readonly CompilerOptions _options;
@@ -42,6 +45,14 @@ public class Tokenizer
     private char _currentChar;
     private Position _position;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Tokenizer"/> class.
+    /// </summary>
+    /// <param name="options">Compilation options.</param>
+    /// <param name="directory">The input directory.</param>
+    /// <param name="filename">The input filename.</param>
+    /// <param name="reader">A file reader.</param>
+    /// <exception cref="Exception">Thrown when the source file is empty.</exception>
     public Tokenizer(CompilerOptions options, string directory, string filename, IInputFileReader reader)
     {
         var source = reader.Read(Path.Combine(directory, filename));
@@ -61,21 +72,44 @@ public class Tokenizer
         _position = new Position { Filename = filename, Line = 1, Column = 1 };
     }
 
+    /// <summary>
+    /// Determines whether or not the current character is at the end of a line.
+    /// </summary>
+    /// <returns>True if the current character is the final character in its line.</returns>
     private bool IsAtEol() =>
         _currentChar == '\n';
 
+    /// <summary>
+    /// Determines whether or not the tokenizer has reached the end of the source code.
+    /// </summary>
+    /// <returns>True if the end of the source code has been reached.</returns>
     private bool IsAtEof() =>
         _position.Offset >= _sourceLength - 1;
 
+    /// <summary>
+    /// Determines whether or not the current character is whitespace.
+    /// </summary>
+    /// <returns>True if the current character represents whitespace.</returns>
     private bool IsAtSpace() =>
         char.IsWhiteSpace(_currentChar);
 
+    /// <summary>
+    /// Determines whether or not the current character is a letter.
+    /// </summary>
+    /// <returns>True if the current character is a letter.</returns>
     private bool IsAtLetter() =>
         char.IsLetter(_currentChar);
 
+    /// <summary>
+    /// Determines whether or not the current character is a digit.
+    /// </summary>
+    /// <returns>True if the current character is a digit.</returns>
     private bool IsAtDigit() =>
         char.IsDigit(_currentChar);
 
+    /// <summary>
+    /// Advances the position in the source code by one character.
+    /// </summary>
     private void Advance()
     {
         _position = _position with { Offset = _position.Offset + 1, Column = _position.Column + 1 };
@@ -86,6 +120,10 @@ public class Tokenizer
         }
     }
 
+    /// <summary>
+    /// Advances the position in the source code by the given number.
+    /// </summary>
+    /// <param name="times"></param>
     private void AdvanceTimes(uint times)
     {
         for (var i = 0; i < times; i++)
@@ -94,9 +132,23 @@ public class Tokenizer
         }
     }
 
+    /// <summary>
+    /// Advances the position in the source code by the length of the given sequence.
+    /// </summary>
+    /// <param name="sequence">The input sequence.</param>
     private void AdvanceSequence(string sequence) =>
         AdvanceTimes((uint)sequence.Length);
 
+    /// <summary>
+    /// Determines whether or not the upcoming sequence of characters in the source code matches the given sequence.
+    /// E.g.,:
+    ///    IsAtSequence("begin") will return true if the next five characters in the source code are "begin".
+    /// 
+    /// The current character is considered to be the first character in the sequence, hence if the first letter of the sequence
+    /// is not the current character, then this method will return false.
+    /// </summary>
+    /// <param name="sequence">The sequence to check for.</param>
+    /// <returns>True if there is a match.</returns>
     private bool IsAtSequence(string sequence)
     {
         var sequenceLength = sequence.Length;
@@ -117,6 +169,9 @@ public class Tokenizer
         return true;
     }
 
+    /// <summary>
+    /// Skips a comment, represented by the .* characters.
+    /// </summary>
     private void SkipComment()
     {
         while (!IsAtEol() && !IsAtEof())
@@ -132,6 +187,11 @@ public class Tokenizer
         }
     }
 
+    /// <summary>
+    /// Tokenizes an identifier, which is a sequence of alphanumeric characters and dashes, starting with a letter. An
+    /// identifier can represent, i.a., a variable name, a procedure name, or a type name.
+    /// </summary>
+    /// <returns>An identifier token.</returns>
     private Token TokenizeIdentifier()
     {
         var originalPosition = _position;
@@ -146,12 +206,16 @@ public class Tokenizer
         return new Token(TokenType.Identifier, stringBuilder.ToString(), originalPosition);
     }
 
+    /// <summary>
+    /// Tokenizes a number. For now no distinction is made between integers and floats.
+    /// </summary>
+    /// <returns>A number token.</returns>
     private Token TokenizerNumber()
     {
         var originalPosition = _position;
         var stringBuilder = new StringBuilder();
 
-        while (IsAtDigit())
+        while (IsAtDigit() && !IsAtEof())
         {
             stringBuilder.Append(_currentChar);
             Advance();
@@ -160,6 +224,11 @@ public class Tokenizer
         return new Token(TokenType.Number, stringBuilder.ToString(), originalPosition);
     }
 
+    /// <summary>
+    /// Tokenizes a string, which is a sequence of alphanumeric characters and symbols enclosed in double quotes.
+    /// </summary>
+    /// <returns>A string token.</returns>
+    /// <exception cref="Exception">Thrown if the string is not properly terminated by a double quote.</exception>
     private Token TokenizeString()
     {
         var originalPosition = _position;
@@ -167,7 +236,7 @@ public class Tokenizer
 
         Advance();
 
-        while (_currentChar != '"')
+        while (_currentChar != '"' && !IsAtEof())
         {
             stringBuilder.Append(_currentChar);
             Advance();
@@ -183,6 +252,11 @@ public class Tokenizer
         return new Token(TokenType.String, stringBuilder.ToString(), originalPosition);
     }
 
+    /// <summary>
+    /// Tokenizes the source code.
+    /// </summary>
+    /// <returns>A list of tokens.</returns>
+    /// <exception cref="Exception">Thrown if there is a syntax error in the source file.</exception>
     public List<Token> Tokenize()
     {
         var tokens = new List<Token>();
