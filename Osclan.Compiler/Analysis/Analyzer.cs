@@ -125,6 +125,38 @@ public class Analyzer
     }
 
     /// <summary>
+    /// Analyzes a procedure declaration. If valid, it is added to the symbol table.
+    /// </summary>
+    /// <param name="node">The procedure node.</param>
+    /// <exception cref="CompilerException">Thrown when the procedure name or any argument name is empty.</exception>
+    private void AnalyzeProcedureDeclaration(AstNode node)
+    {
+        var procedure = new Procedure
+        {
+            Name = node.Value ?? throw new CompilerException("Procedure name cannot be empty."),
+            ReturnType = node.RawType?.Name != "void" ? _symbolTable.ResolveType(node.RawType?.Name ?? string.Empty) : null
+        };
+
+        foreach (var child in node.Children)
+        {
+            if (child.Type == AstNodeType.Argument)
+            {
+                var type = _symbolTable.ResolveType(child.RawType?.Name ?? string.Empty);
+
+                procedure.Parameters.Add(new Variable
+                {
+                    Name = child.Value ?? throw new CompilerException("Argument name cannot be empty."),
+                    TypeName = type.Name,
+                    IsPointer = type.IsPointer,
+                    SizeInBytes = type.SizeInBytes
+                });
+            }
+        }
+
+        _symbolTable.AddProcedure(procedure);
+    }
+
+    /// <summary>
     /// Analyzes an argument declaration. This method is called when a procedure is being analyzed and
     /// ensures that the arguments of a procedure are properly declared. Arguments are declared as variables,
     /// since, in practice, they are.
@@ -184,14 +216,16 @@ public class Analyzer
 
     /// <summary>
     /// Analyzes a referred field. For example, in the case of 'list::elements(0)::first-name : some-value',
-    /// elements(0)::first-name represents the referred field.
+    /// elements(0)::first-name represents the referred field. Most of the validation is done in the symbol table.
+    /// 
+    /// This method (through the symbol table) also ensures that any indexed fields are properly addressed.
     /// </summary>
     /// <param name="node">The input node.</param>
     /// <param name="variable">The variable that should contain the referred fields.</param>
     private void AnalyzeReferredField(AstNode node, Variable variable)
     {
-        // TODO: Implement this method.
         var varType = _symbolTable.ResolveTypeByMangledName(variable.TypeName);
+        _symbolTable.ResolveField(varType, node.Path ?? string.Empty);
     }
 
     /// <summary>
@@ -211,6 +245,9 @@ public class Analyzer
                 break;
             case AstNodeType.Argument:
                 AnalyzeArgumentDeclaration(node);
+                break;
+            case AstNodeType.Procedure:
+                AnalyzeProcedureDeclaration(node);
                 break;
             case AstNodeType.DynOffset:
             case AstNodeType.Variable:

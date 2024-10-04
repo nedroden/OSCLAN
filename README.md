@@ -1,18 +1,14 @@
 # OSCLAN
 
-Compiler for OSCLAN (Old-SChool LANguage), a business-oriented toy language that compiles to AARch64 Assembly.
+Compiler for OSCLAN (Old-SChool LANguage), a business-oriented toy language that compiles to AArch64 Assembly.
 
 ![Build](https://github.com/nedroden/OSCLAN/actions/workflows/build.yml/badge.svg)
 
 ## Context
 
-I have been wanting to build a compiler for some time, however the main challenge has been the code generation part. The original plan was to build a compiler for Apple Silicon chips, however for now the idea is to build something that compiles to MSIL. Once that is done, the idea is to introduce AArch64 code generation as well.
+I have been wanting to build a compiler for some time, however the main challenge has been the code generation part. The original plan was to build a compiler for Apple Silicon chips, however it might turn out that it would be easier to target something like MSIL first.
 
-## Feedback
-
-My experience with Go and compiler construction is somewhat limited, so if you have any thoughts, feel free to share them by opening up a pull request or an issue.
-
-Also, my main focus at this point is on getting things working, so the code will definitely not be as clean as it should be.
+If you have any thoughts, feel free to share them by opening up a pull request or an issue. My main focus at this point is on getting things working, so the code will definitely not be as clean as it should be. There is no real plan involved here; I'm just making everything up as I go along.
 
 ## Usage
 

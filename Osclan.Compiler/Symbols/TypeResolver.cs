@@ -3,7 +3,6 @@ using Osclan.Compiler.Parsing;
 
 namespace Osclan.Compiler.Symbols;
 
-// TODO: finish this (sep 29)
 public class TypeResolver
 {
     public Type GetType(SymbolTable symbolTable, AstNode node)
@@ -44,14 +43,15 @@ public class TypeResolver
             }
 
             var compositeChildType = GetType(symbolTable, child);
-            type.Fields.Add(Mangler.Mangle(name), compositeChildType);
 
-            type.IsArray = child.RawType is { Size: > 1 };
+            compositeChildType.IsArray = child.RawType is { Size: > 1 };
 
             // TODO: check if this works properly. Since it might not.
-            type.SizeInBytes += type.IsArray
+            compositeChildType.SizeInBytes += compositeChildType.IsArray
                 ? child.RawType!.Size * compositeChildType.SizeInBytes
                 : compositeChildType.SizeInBytes;
+
+            type.Fields.Add(Mangler.Mangle(name), compositeChildType);
         }
 
         return type;

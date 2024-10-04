@@ -22,5 +22,9 @@ public class Generator
         _strategy = strategy;
     }
 
+    /// <summary>
+    /// Generates intermediate language code for the given AST.
+    /// </summary>
+    /// <returns>The IL that corresponds to translating the given AST using the given strategy.</returns>
     public string GenerateIl() => _strategy.GenerateIl(_tree);
 }

@@ -15,8 +15,18 @@ public class AArch64Strategy : IGenerationStrategy
         _emitter.EmitDirect($"; AArch64 code generated at {DateTime.UtcNow}");
         GenerateRoot();
 
-        GenerateProcedureProlog(Mangler.Mangle("main"));
-        GenerateProcedureEpilog();
+        foreach (var node in tree.Children)
+        {
+            switch (node.Type)
+            {
+                case AstNodeType.Procedure:
+                    GenerateProcedureIl(node);
+                    break;
+                default:
+                    Console.WriteLine($"Generation for {node.TypeString} is not yet implemented.");
+                    break;
+            }
+        }
 
         return _emitter.GetResult();
     }
@@ -35,15 +45,17 @@ public class AArch64Strategy : IGenerationStrategy
         _emitter.EmitNewLine();
     }
 
-    private void GenerateProcedureProlog(string procedureName)
+    private void GenerateProcedureIl(AstNode node)
     {
-        _emitter.EmitDirect($"p_{procedureName}:");
+        // TODO: Remove the line below when I actually start implementing code generation.
+        node.Value = Mangler.Mangle(node.Value ?? string.Empty);
+
+        // Procedure prolog
+        _emitter.EmitDirect($"p_{node.Value}:");
         _emitter.EmitOpcode("stp", "lr, fp, [sp, #-16]!");          // Save LR and FP on the stack
         _emitter.EmitOpcode("mov", "fp, sp");                       // Set frame pointer
-    }
 
-    private void GenerateProcedureEpilog()
-    {
+        // Procedure epilog
         _emitter.EmitOpcode("mov", "sp, fp");                       // Restore stack pointer
         _emitter.EmitOpcode("ldp", "lr, fp, [sp], #16");            // Restore FP and LR
         _emitter.EmitOpcode("ret");                                 // Return to caller
