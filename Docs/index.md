@@ -77,7 +77,3 @@ The language has the following (case-insensitive) keywords:
 - [ ] Unit tests (once tokenizer and parser are done)
 
 **Note:** optimizer and more advanced analyzer will be added _after_ a basic code generator.
-
-## Technical Documentation
-
-To build the docs, ensure that you have docfx installed. Then, in a terminal, run the `build-docs.sh` script. In order to view the docs, open the `Docs/_site/index.html` file in a web browser.
