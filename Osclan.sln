@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Osclan.Compiler", "Osclan.Compiler\Osclan.Compiler.csproj", "{49120341-1D2B-4674-A9DE-F1EEE24C5271}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Osclan.Compiler.Test", "Osclan.Compiler.Test\Osclan.Compiler.Test.csproj", "{CB5E56E5-06B6-44CD-B235-DFCB9E1695D4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{49120341-1D2B-4674-A9DE-F1EEE24C5271}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{49120341-1D2B-4674-A9DE-F1EEE24C5271}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{49120341-1D2B-4674-A9DE-F1EEE24C5271}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{49120341-1D2B-4674-A9DE-F1EEE24C5271}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CB5E56E5-06B6-44CD-B235-DFCB9E1695D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CB5E56E5-06B6-44CD-B235-DFCB9E1695D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CB5E56E5-06B6-44CD-B235-DFCB9E1695D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CB5E56E5-06B6-44CD-B235-DFCB9E1695D4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

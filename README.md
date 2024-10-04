@@ -1,6 +1,6 @@
 # OSCLAN
 
-Compiler for OSCLAN (Old-SChool LANguage), a business-oriented toy language that compiles to MSIL.
+Compiler for OSCLAN (Old-SChool LANguage), a business-oriented toy language that compiles to AARch64 Assembly.
 
 ![Build](https://github.com/nedroden/OSCLAN/actions/workflows/build.yml/badge.svg)
 

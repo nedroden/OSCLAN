@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-cd Compiler && go test -v ./...
+dotnet test -v n
