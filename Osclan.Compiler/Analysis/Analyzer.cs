@@ -37,27 +37,6 @@ public class Analyzer
     }
 
     /// <summary>
-    /// Checks if the assignment is valid and, if so, whether or not it could lead to possible data loss.
-    /// </summary>
-    /// <param name="from">The source data.</param>
-    /// <param name="to">The destination data (= variable).</param>
-    /// <returns></returns>
-    private TypeCompatibility PeformAssignmentCheck(Symbols.Type from, Symbols.Type to)
-    {
-        if (from.Name == Mangler.Mangle("string") && (to.Name == Mangler.Mangle("int") || to.Name == Mangler.Mangle("uint")))
-        {
-            return TypeCompatibility.Illegal;
-        }
-
-        if (from.SizeInBytes > to.SizeInBytes)
-        {
-            return TypeCompatibility.LossOfInformation;
-        }
-
-        return TypeCompatibility.Ok;
-    }
-
-    /// <summary>
     /// Checks whether or not an entry point with the signature 'public [uint(4)]::main()' exists.
     /// </summary>
     /// <returns>True if a method exists with the proper signature.</returns>
@@ -80,7 +59,9 @@ public class Analyzer
             return;
         }
 
-        var structType = new TypeResolver().GetType(_symbolTable, node);
+        var typeService = new TypeService();
+        var structType = typeService.GetType(_symbolTable, node);
+        typeService.IndexType(structType);
 
         // If possible, add the type to the parent symbol table so that it is usable by variables in the same scope.
         (_symbolTable.Parent ?? _symbolTable).AddType(structType);
@@ -102,8 +83,9 @@ public class Analyzer
 
         var type = _symbolTable.ResolveType(variableNode.RawType?.Name ?? string.Empty);
 
-        var variableType = new TypeResolver().GetType(_symbolTable, variableNode);
-        var assignmentStatus = PeformAssignmentCheck(variableType, type);
+        var typeService = new TypeService();
+        var variableType = typeService.GetType(_symbolTable, variableNode);
+        var assignmentStatus = typeService.VerifyAssignmentCompatibility(variableType, type);
 
         // TODO: Improve the error messages, we want a position here.
         switch (assignmentStatus)
@@ -115,9 +97,8 @@ public class Analyzer
                 break;
         }
 
-        _symbolTable.AddVariable(new Variable
+        _symbolTable.AddVariable(new Variable(variableNode.Value ?? throw new CompilerException("Variable name cannot be empty."))
         {
-            Name = variableNode.Value ?? throw new CompilerException("Variable name cannot be empty."),
             TypeName = type.Name,
             IsPointer = type.IsPointer,
             SizeInBytes = valueNode.RawType?.Size > 0 ? valueNode.RawType.Size : type.SizeInBytes
@@ -131,9 +112,8 @@ public class Analyzer
     /// <exception cref="CompilerException">Thrown when the procedure name or any argument name is empty.</exception>
     private void AnalyzeProcedureDeclaration(AstNode node)
     {
-        var procedure = new Procedure
+        var procedure = new Procedure(node.Value ?? throw new CompilerException("Procedure name cannot be empty."))
         {
-            Name = node.Value ?? throw new CompilerException("Procedure name cannot be empty."),
             ReturnType = node.RawType?.Name != "void" ? _symbolTable.ResolveType(node.RawType?.Name ?? string.Empty) : null
         };
 
@@ -143,9 +123,8 @@ public class Analyzer
             {
                 var type = _symbolTable.ResolveType(child.RawType?.Name ?? string.Empty);
 
-                procedure.Parameters.Add(new Variable
+                procedure.Parameters.Add(new Variable(child.Value ?? throw new CompilerException("Argument name cannot be empty."))
                 {
-                    Name = child.Value ?? throw new CompilerException("Argument name cannot be empty."),
                     TypeName = type.Name,
                     IsPointer = type.IsPointer,
                     SizeInBytes = type.SizeInBytes
@@ -154,6 +133,49 @@ public class Analyzer
         }
 
         _symbolTable.AddProcedure(procedure);
+    }
+
+    /// <summary>
+    /// Performs a return type check. This method is called when a procedure is being analyzed and a 'ret' statement is encountered.
+    /// </summary>
+    /// <param name="procedure">The procedure in which the return statement is located.</param>
+    /// <param name="returnNode">The return statement node.</param>
+    /// <exception cref="SourceException">Thrown when the return value is invalid.</exception>
+    private void PerformReturnTypeCheck(Procedure procedure, AstNode returnNode)
+    {
+        bool isVoid = returnNode.Children.Count == 0;
+
+        // If the procedure's return type is void and the return statement is void, then we're good.
+        if (procedure.ReturnType is null && isVoid)
+        {
+            return;
+        }
+
+        var typeService = new TypeService();
+        var returnValueNode = returnNode.Children.First();
+
+        // Return value is constant
+        if (returnValueNode.RawType?.Name is not null)
+        {
+            var resolvedType = _symbolTable.ResolveType(returnValueNode.RawType?.Name ?? string.Empty);
+
+            if (isVoid || typeService.VerifyAssignmentCompatibility(resolvedType, procedure.ReturnType!) != TypeCompatibility.Ok)
+            {
+                throw new SourceException("Invalid return type.");
+            }
+        }
+
+        // Return value is a variable
+        Developer.DumpObject(returnNode);
+        if (returnValueNode.Children.Count == 1 && returnValueNode.Children[0].Type == AstNodeType.Variable)
+        {
+            var variable = _symbolTable.ResolveVariable(returnValueNode.Children[0].Value ?? throw new CompilerException("Variable name cannot be empty."));
+
+            if (isVoid || typeService.VerifyAssignmentCompatibility(_symbolTable.ResolveType(variable.TypeName), procedure.ReturnType!) != TypeCompatibility.Ok)
+            {
+                throw new SourceException("Invalid return type.");
+            }
+        }
     }
 
     /// <summary>
@@ -174,9 +196,8 @@ public class Analyzer
 
         var type = _symbolTable.ResolveType(typeName?.Name ?? throw new CompilerException("Type name cannot be empty."));
 
-        var variable = new Variable
+        var variable = new Variable(node.Value ?? throw new CompilerException("Argument name cannot be empty."))
         {
-            Name = node.Value ?? throw new CompilerException("Argument name cannot be empty."),
             TypeName = type.Name,
             IsPointer = type.IsPointer,
             SizeInBytes = type.SizeInBytes

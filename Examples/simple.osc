@@ -28,7 +28,7 @@ declare public [List]::init-list()
         last-name : "Doe"
     end
 
-    ret list
+    ret localSize
 end
 
 declare private [void]::add-child-to-list([List*] list, [string(20)] first-name, [string(20)] last-name)

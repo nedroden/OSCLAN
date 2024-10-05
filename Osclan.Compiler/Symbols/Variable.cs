@@ -1,10 +1,10 @@
 namespace Osclan.Compiler.Symbols;
 
-public record Variable
+public record Variable : Symbol
 {
-    public required string Name { get; set; }
-
-    public string UnmangledName { get; set; } = string.Empty;
+    public Variable(string name) : base(name, SymbolType.Variable)
+    {
+    }
 
     public required string TypeName { get; set; }
 

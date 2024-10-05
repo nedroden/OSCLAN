@@ -5,17 +5,15 @@ namespace Osclan.Compiler.Symbols;
 /// <summary>
 /// Represents a procedure.
 /// </summary>
-public record Procedure
+public record Procedure : Symbol
 {
     /// <summary>
-    /// The mangled procedure name.
+    /// Initializes a new instance of the <see cref="Procedure"/> class.
     /// </summary>
-    public required string Name { get; set; }
-
-    /// <summary>
-    /// The original, unmangled procedure name.
-    /// </summary>
-    public string UnmangledName { get; set; } = string.Empty;
+    /// <param name="name">The name of the procedure.</param>
+    public Procedure(string name) : base(name, SymbolType.Procedure)
+    {
+    }
 
     /// <summary>
     /// The return type of the procedure. If empty, the return 'type' is void.

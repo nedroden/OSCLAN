@@ -9,9 +9,8 @@ public class SymbolTableTests
     [Fact]
     public void Test_Variable_Is_Declared()
     {
-        var variable = new Variable
+        var variable = new Variable("someVariable")
         {
-            Name = "someVariable",
             TypeName = "string"
         };
 
@@ -28,9 +27,8 @@ public class SymbolTableTests
     [Fact]
     public void Test_Variable_Is_Resolved()
     {
-        _sut.AddVariable(new Variable
+        _sut.AddVariable(new Variable("someVariable")
         {
-            Name = "someVariable",
             TypeName = "string"
         });
 
@@ -40,9 +38,8 @@ public class SymbolTableTests
     [Fact]
     public void Test_Type_Is_Declared()
     {
-        _sut.AddType(new Osclan.Compiler.Symbols.Type
+        _sut.AddType(new Osclan.Compiler.Symbols.Type("SomeType")
         {
-            Name = "SomeType",
             SizeInBytes = 0
         });
 
@@ -56,9 +53,8 @@ public class SymbolTableTests
     [Fact]
     public void Test_Type_Is_Resolved_In_Current_Scope()
     {
-        _sut.AddType(new Osclan.Compiler.Symbols.Type
+        _sut.AddType(new Osclan.Compiler.Symbols.Type("SomeType")
         {
-            Name = "SomeType",
             SizeInBytes = 0
         });
 

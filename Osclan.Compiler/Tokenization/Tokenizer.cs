@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Extensions;
 using Osclan.Compiler.Io;
 
@@ -39,9 +40,7 @@ public class Tokenizer
         { "then", new Token(TokenType.Then) }
     };
 
-    private readonly string _source;
-    private readonly string _module;
-    private readonly uint _sourceLength;
+    private readonly string _source; private readonly uint _sourceLength;
     private char _currentChar;
     private Position _position;
 
@@ -52,7 +51,7 @@ public class Tokenizer
     /// <param name="directory">The input directory.</param>
     /// <param name="filename">The input filename.</param>
     /// <param name="reader">A file reader.</param>
-    /// <exception cref="Exception">Thrown when the source file is empty.</exception>
+    /// <exception cref="SourceException">Thrown when the source file is empty.</exception>
     public Tokenizer(CompilerOptions options, string directory, string filename, IInputFileReader reader)
     {
         var source = reader.Read(Path.Combine(directory, filename));
@@ -60,12 +59,11 @@ public class Tokenizer
         _options = options;
         _source = source;
 
-        _module = directory;
         _sourceLength = (uint)source.Length;
 
         if (_sourceLength == 0)
         {
-            throw new Exception("Source is empty");
+            throw new SourceException("Source is empty");
         }
 
         _currentChar = _source[0];
@@ -221,6 +219,11 @@ public class Tokenizer
             Advance();
         }
 
+        if (!IsAtEof() && !IsAtSpace())
+        {
+            throw new SourceException($"Unexpected character at position {_position}: {_currentChar}");
+        }
+
         return new Token(TokenType.Number, stringBuilder.ToString(), originalPosition);
     }
 
@@ -228,7 +231,7 @@ public class Tokenizer
     /// Tokenizes a string, which is a sequence of alphanumeric characters and symbols enclosed in double quotes.
     /// </summary>
     /// <returns>A string token.</returns>
-    /// <exception cref="Exception">Thrown if the string is not properly terminated by a double quote.</exception>
+    /// <exception cref="SourceException">Thrown if the string is not properly terminated by a double quote.</exception>
     private Token TokenizeString()
     {
         var originalPosition = _position;
@@ -244,7 +247,7 @@ public class Tokenizer
 
         if (_currentChar != '"')
         {
-            throw new Exception("Unterminated string");
+            throw new SourceException("Unterminated string");
         }
 
         Advance();
@@ -256,7 +259,7 @@ public class Tokenizer
     /// Tokenizes the source code.
     /// </summary>
     /// <returns>A list of tokens.</returns>
-    /// <exception cref="Exception">Thrown if there is a syntax error in the source file.</exception>
+    /// <exception cref="SourceException">Thrown if there is a syntax error in the source file.</exception>
     public List<Token> Tokenize()
     {
         var tokens = new List<Token>();
@@ -343,7 +346,7 @@ public class Tokenizer
                 '=' => new Token(TokenType.Eq),
                 '*' => new Token(TokenType.Asterisk),
                 '~' => new Token(TokenType.Tilde),
-                _ => throw new Exception($"Unexpected character at position {_position}: {_currentChar}")
+                _ => throw new SourceException($"Unexpected character at position {_position}: {_currentChar}")
             };
 
             tokens.Add(token with { Position = _position });
