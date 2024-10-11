@@ -46,25 +46,26 @@ public class TokenizerTests
         Assert.Equal(TokenType.Declare, tokens[0].Type);
     }
 
-    // [Fact]
-    // public void Test_Random_Identifier_Is_Tokenized()
-    // {
-    //     _readerMock.Read("TestFiles/test.osc").Returns("some-random-identifier");
-    //     var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
-    //     var tokens = tokenizer.Tokenize();
+    [Fact]
+    public void Test_Random_Identifier_Is_Tokenized()
+    {
+        _readerMock.Read("TestFiles/test.osc").Returns("some-random-identifier");
+        var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
+        var tokens = tokenizer.Tokenize();
 
-    //     Assert.Single(tokens);
-    //     Assert.Equal(TokenType.Identifier, tokens[0].Type);
-    // }
+        Assert.Single(tokens);
+        Assert.Equal(TokenType.Identifier, tokens[0].Type);
+        Assert.Equal("some-random-identifier", tokens[0].Value);
+    }
 
-    // [Fact]
-    // public void Test_Error_Is_Thrown_When_Identifier_Starts_With_Number()
-    // {
-    //     _readerMock.Read("TestFiles/test.osc").Returns("1identifier");
-    //     var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
+    [Fact]
+    public void Test_Error_Is_Thrown_When_Identifier_Starts_With_Number()
+    {
+        _readerMock.Read("TestFiles/test.osc").Returns("1identifier");
+        var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
 
-    //     Assert.Throws<SourceException>(() => tokenizer.Tokenize());
-    // }
+        Assert.Throws<SourceException>(() => tokenizer.Tokenize());
+    }
 
     [Fact]
     public void Test_Error_Is_Thrown_When_String_Not_Terminated()
@@ -73,5 +74,29 @@ public class TokenizerTests
         var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
 
         Assert.Throws<SourceException>(() => tokenizer.Tokenize());
+    }
+
+    [Theory]
+    [InlineData('+', TokenType.Plus)]
+    [InlineData('-', TokenType.Minus)]
+    [InlineData('.', TokenType.Dot)]
+    [InlineData('(', TokenType.Lparen)]
+    [InlineData(')', TokenType.Rparen)]
+    [InlineData('[', TokenType.Lbracket)]
+    [InlineData(']', TokenType.Rbracket)]
+    [InlineData('<', TokenType.Lt)]
+    [InlineData('>', TokenType.Gt)]
+    [InlineData(':', TokenType.Colon)]
+    [InlineData(',', TokenType.Comma)]
+    [InlineData('=', TokenType.Eq)]
+    [InlineData('*', TokenType.Asterisk)]
+    [InlineData('~', TokenType.Tilde)]
+    public void Test_Special_Character_Is_Tokenized(char character, TokenType tokenType)
+    {
+        _readerMock.Read("TestFiles/test.osc").Returns(character.ToString());
+        var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
+        var tokens = tokenizer.Tokenize();
+
+        Assert.Equal(tokenType, tokens.Single().Type);
     }
 }

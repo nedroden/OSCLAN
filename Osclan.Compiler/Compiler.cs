@@ -3,11 +3,16 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using Osclan.Compiler.Analysis;
+using Osclan.Compiler.Analysis.Abstractions;
+using Osclan.Compiler.Assembler.Abstractions;
 using Osclan.Compiler.Generation;
+using Osclan.Compiler.Generation.Abstractions;
 using Osclan.Compiler.Generation.Architecture;
 using Osclan.Compiler.Io;
 using Osclan.Compiler.Parsing;
+using Osclan.Compiler.Parsing.Abstractions;
 using Osclan.Compiler.Tokenization;
+using Osclan.Compiler.Tokenization.Abstractions;
 
 namespace Osclan.Compiler;
 
@@ -15,8 +20,31 @@ public class Compiler
 {
     private readonly CompilerOptions _options;
 
-    public Compiler(CompilerOptions options) =>
+    private readonly ITokenizer _tokenizer;
+    private readonly IParser _parser;
+    private readonly IAnalyzer _analyzer;
+    private readonly IGenerator _generator;
+    private readonly IAssembler _assembler;
+
+    public Compiler(CompilerOptions options) : this(options,
+        new Tokenizer(options, options.TempFilePath, options.InputFile, new InputFileReader()),
+        new Parser(),
+        new Analyzer(),
+        new Generator(new AArch64Strategy(new Emitter())),
+        new Assembler.Assembler())
+    { }
+
+    public Compiler(
+        CompilerOptions options, ITokenizer tokenizer, IParser parser,
+        IAnalyzer analyzer, IGenerator generator, IAssembler assembler)
+    {
         _options = options;
+        _tokenizer = tokenizer;
+        _parser = parser;
+        _analyzer = analyzer;
+        _generator = generator;
+        _assembler = assembler;
+    }
 
     public void Run()
     {
@@ -31,32 +59,27 @@ public class Compiler
         stopwatch.Start();
 
         // Step 1 - Tokenization
-        var tokenizer = new Tokenizer(_options, _options.TempFilePath, _options.InputFile, new InputFileReader());
-        var tokens = tokenizer.Tokenize();
+        var tokens = _tokenizer.Tokenize();
         SaveIntermediateFile($"{_options.InputFileName}_tokens.json", SerializeState(tokens));
 
         // Step 2 - Syntactic analysis (parsing)
-        var parser = new Parser(tokens);
-        var ast = parser.Parse();
+        var ast = _parser.Parse(tokens);
         SaveIntermediateFile($"{_options.InputFileName}_ast_pre_analysis.json", SerializeState(ast));
 
         // Step 3 - Semantic analysis
-        var analyzer = new Analyzer(ast);
-        ast = analyzer.Analyze();
+        ast = _analyzer.Analyze(ast);
         SaveIntermediateFile($"{_options.InputFileName}_ast_post_analysis.json", SerializeState(ast));
-        SaveIntermediateFile($"{_options.InputFileName}_symbol_tables.json", SerializeState(analyzer.ArchivedSymbolTables));
+        SaveIntermediateFile($"{_options.InputFileName}_symbol_tables.json", SerializeState(_analyzer.ArchivedSymbolTables));
 
         // Step 4 - Optimization
         // todo
 
         // Step 5 - Code generation
-        var generator = new Generator(ast, new AArch64Strategy(new Emitter()));
-        var il = generator.GenerateIl();
+        var il = _generator.GenerateIl(ast);
         SaveIntermediateFile($"{_options.InputFileName}.s", il);
 
         // Step 6 - Assembler and linker
-        var assembler = new Assembler.Assembler(Path.Combine(_options.TempFilePath, _options.InputFileName.Replace(".s", string.Empty)), _options.OutputPath);
-        assembler.Assemble();
+        _assembler.Assemble(Path.Combine(_options.TempFilePath, _options.InputFileName.Replace(".s", string.Empty)), _options.OutputPath);
 
         stopwatch.Stop();
         Console.WriteLine($"Compilation finished in {stopwatch.ElapsedMilliseconds} ms.");

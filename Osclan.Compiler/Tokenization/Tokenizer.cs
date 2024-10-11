@@ -1,17 +1,17 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Extensions;
 using Osclan.Compiler.Io;
+using Osclan.Compiler.Tokenization.Abstractions;
 
 namespace Osclan.Compiler.Tokenization;
 
 /// <summary>
 /// Given an input source file, converts the contents of that file into a series of tokens.
 /// </summary>
-public class Tokenizer
+public class Tokenizer : ITokenizer
 {
     private readonly CompilerOptions _options;
 
@@ -70,6 +70,9 @@ public class Tokenizer
         _position = new Position { Filename = filename, Line = 1, Column = 1 };
     }
 
+    private char? PeakNext() =>
+        _position.Offset + 1 < _sourceLength ? _source[_position.Offset + 1] : null;
+
     /// <summary>
     /// Determines whether or not the current character is at the end of a line.
     /// </summary>
@@ -80,9 +83,9 @@ public class Tokenizer
     /// <summary>
     /// Determines whether or not the tokenizer has reached the end of the source code.
     /// </summary>
-    /// <returns>True if the end of the source code has been reached.</returns>
+    /// <returns>True if the current index no longer points to an existing character in the source code.</returns>
     private bool IsAtEof() =>
-        _position.Offset >= _sourceLength - 1;
+        _position.Offset >= _sourceLength;
 
     /// <summary>
     /// Determines whether or not the current character is whitespace.
@@ -195,7 +198,7 @@ public class Tokenizer
         var originalPosition = _position;
         var stringBuilder = new StringBuilder();
 
-        while (_currentChar.IsIdentifierChar())
+        while (_currentChar.IsIdentifierChar() && !IsAtEof())
         {
             stringBuilder.Append(_currentChar);
             Advance();
@@ -219,7 +222,7 @@ public class Tokenizer
             Advance();
         }
 
-        if (!IsAtEof() && !IsAtSpace())
+        if (_currentChar.IsIdentifierChar())
         {
             throw new SourceException($"Unexpected character at position {_position}: {_currentChar}");
         }
@@ -318,7 +321,7 @@ public class Tokenizer
                 continue;
             }
 
-            if (IsAtLetter() || _currentChar == '-')
+            if (IsAtLetter() || (_currentChar == '-' && PeakNext() is not null && !PeakNext()!.Value.IsIdentifierChar()))
             {
                 tokens.Add(TokenizeIdentifier());
                 continue;

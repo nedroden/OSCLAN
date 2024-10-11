@@ -3,22 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Osclan.Compiler.Exceptions;
+using Osclan.Compiler.Parsing.Abstractions;
 using Osclan.Compiler.Tokenization;
 
 namespace Osclan.Compiler.Parsing;
 
-public class Parser
+public class Parser : IParser
 {
-    private readonly List<Token> _tokens;
+    private List<Token> _tokens = [];
     private uint _currentTokenIndex;
-    public Token CurrentToken => _tokens[(int)_currentTokenIndex];
-    public readonly uint _numberOfTokens;
-
-    public Parser(List<Token> tokens)
-    {
-        _tokens = tokens;
-        _numberOfTokens = (uint)tokens.Count;
-    }
+    private Token CurrentToken => _tokens[(int)_currentTokenIndex];
+    private uint _numberOfTokens;
 
     private void ThrowUnexpectedTokenException(TokenType expected) =>
         throw new Exception($"Unexpected token '{Enum.GetName(typeof(TokenType), CurrentToken.Type)}'. Expected '{Enum.GetName(typeof(TokenType), expected)}' at {CurrentToken.Position}");
@@ -490,8 +485,11 @@ public class Parser
         return variable;
     }
 
-    public AstNode Parse()
+    public AstNode Parse(List<Token> tokens)
     {
+        _tokens = tokens;
+        _numberOfTokens = (uint)tokens.Count;
+
         var root = new AstNode { Type = AstNodeType.Root };
 
         while (_currentTokenIndex < _numberOfTokens - 1)

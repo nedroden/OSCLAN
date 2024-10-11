@@ -1,22 +1,14 @@
 using System;
+using Osclan.Compiler.Assembler.Abstractions;
 using Osclan.Compiler.Native;
 
 namespace Osclan.Compiler.Assembler;
 
 public class Assembler : IAssembler
 {
-    private readonly string _inputObjectFile;
-    private readonly string _outputPath;
-
-    public Assembler(string inputObjectFile, string outputPath)
+    public void Assemble(string inputObjectFile, string outputPath)
     {
-        _inputObjectFile = inputObjectFile;
-        _outputPath = outputPath;
-    }
-
-    public void Assemble()
-    {
-        var assemblerStep = new ShellCommand("as", $"-o {_inputObjectFile}.o {_inputObjectFile}.s -arch arm64");
+        var assemblerStep = new ShellCommand("as", $"-o {inputObjectFile}.o {inputObjectFile}.s -arch arm64");
         var result = assemblerStep.Start();
 
         if (result.ExitCode != 0)
@@ -24,7 +16,7 @@ public class Assembler : IAssembler
             throw new Exception($"Assembler failed with exit code {result.ExitCode}. Stderr: {result.Stderr}");
         }
 
-        var linkerStep = new ShellCommand("ld", $" -arch arm64 {_inputObjectFile}.o -o {_outputPath}");
+        var linkerStep = new ShellCommand("ld", $" -arch arm64 {inputObjectFile}.o -o {outputPath}");
         result = linkerStep.Start();
 
         if (result.ExitCode != 0)
