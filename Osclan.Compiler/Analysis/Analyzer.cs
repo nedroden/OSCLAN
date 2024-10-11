@@ -162,7 +162,6 @@ public class Analyzer : IAnalyzer
         }
 
         // Return value is a variable
-        Developer.DumpObject(returnNode);
         if (returnValueNode.Children.Count == 1 && returnValueNode.Children[0].Type == AstNodeType.Variable)
         {
             var variable = _symbolTable.ResolveVariable(returnValueNode.Children[0].Value ?? throw new CompilerException("Variable name cannot be empty."));

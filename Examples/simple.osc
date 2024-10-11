@@ -3,6 +3,8 @@
 .import "system"
 .import "system.algorithms"
 
+.mangler "enable"
+
 declare public struct List
     [int(8)] size
     

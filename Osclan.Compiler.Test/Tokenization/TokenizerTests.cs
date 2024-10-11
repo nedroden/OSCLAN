@@ -1,3 +1,4 @@
+using System.Linq;
 using NSubstitute;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Io;

@@ -16,7 +16,7 @@ public class Parser : IParser
     private uint _numberOfTokens;
 
     private void ThrowUnexpectedTokenException(TokenType expected) =>
-        throw new Exception($"Unexpected token '{Enum.GetName(typeof(TokenType), CurrentToken.Type)}'. Expected '{Enum.GetName(typeof(TokenType), expected)}' at {CurrentToken.Position}");
+        throw new SourceException($"Unexpected token '{Enum.GetName(typeof(TokenType), CurrentToken.Type)}'. Expected '{Enum.GetName(typeof(TokenType), expected)}' at {CurrentToken.Position}");
 
     private Token Consume(TokenType tokenType)
     {
@@ -27,7 +27,7 @@ public class Parser : IParser
 
         var oldToken = CurrentToken;
 
-        if (_currentTokenIndex < _numberOfTokens - 1)
+        if (_currentTokenIndex < _numberOfTokens)
         {
             _currentTokenIndex++;
         }
@@ -92,11 +92,12 @@ public class Parser : IParser
         {
             case "import":
             case "module":
+            case "mangler":
                 var argument = Consume(TokenType.String);
                 directive.Children.Add(new AstNode { Type = AstNodeType.Argument, Value = argument.Value ?? throw new CompilerException("Argument must have a value.") });
                 break;
             default:
-                throw new Exception($"Unknown compiler directive '{directive.Value}'");
+                throw new SourceException($"Unknown compiler directive '{directive.Value}'");
         }
 
         return directive;
@@ -121,7 +122,7 @@ public class Parser : IParser
         {
             { Type: TokenType.Struct } => ParseStructure(),
             { Type: TokenType.Lbracket } => ParseProcedure(),
-            _ => throw new Exception($"Token type '{CurrentToken.Type}' cannot be used in a declaration.")
+            _ => throw new SourceException($"Token type '{CurrentToken.Type}' cannot be used in a declaration.")
         };
 
         declarationNode.Modifiers.AddRange(modifiers);
@@ -243,7 +244,7 @@ public class Parser : IParser
                     statements.Add(ParseProcedureCall());
                     break;
                 default:
-                    throw new Exception($"Unexpected token '{CurrentToken.Value}' at {CurrentToken.Position}");
+                    throw new SourceException($"Unexpected token '{CurrentToken.Value}' at {CurrentToken.Position}");
             }
         }
 
@@ -275,8 +276,12 @@ public class Parser : IParser
     private AstNode ParseAutoMemoryAllocation()
     {
         Consume(TokenType.Init);
-        var allocationNode = new AstNode { Type = AstNodeType.Allocation };
-        allocationNode.RawType = ParseType();
+
+        var allocationNode = new AstNode
+        {
+            Type = AstNodeType.Allocation,
+            RawType = ParseType()
+        };
 
         return allocationNode;
     }
@@ -325,7 +330,7 @@ public class Parser : IParser
             TokenType.Asterisk => new AstNode { Type = AstNodeType.Variable, Value = ConsumeAndGetLast(TokenType.Asterisk, TokenType.Identifier).Value, IsDereferenced = true },
             TokenType.Declare => ParseAnonDeclaration(),
             TokenType.Call => ParseProcedureCall(),
-            _ => throw new Exception($"Unexpected token '{CurrentToken.Value}' at {CurrentToken.Position}")
+            _ => throw new SourceException($"Unexpected token '{CurrentToken.Value}' at {CurrentToken.Position}")
         };
 
         assignmentNode.Children.Add(rightOperand);
@@ -405,7 +410,7 @@ public class Parser : IParser
 
         if (!IsAt(TokenType.Identifier) && !IsAt(TokenType.Struct))
         {
-            throw new Exception("Expected identifier after '['");
+            throw new SourceException("Expected identifier after '['");
         }
 
         var name = IsAt(TokenType.Identifier) ? Consume(TokenType.Identifier).Value : "struct";
@@ -492,7 +497,7 @@ public class Parser : IParser
 
         var root = new AstNode { Type = AstNodeType.Root };
 
-        while (_currentTokenIndex < _numberOfTokens - 1)
+        while (_currentTokenIndex < _numberOfTokens)
         {
             switch (CurrentToken.Type)
             {
@@ -500,7 +505,7 @@ public class Parser : IParser
                 case TokenType.Declare: root.Children.Add(ParseDeclaration()); break;
                 case TokenType.Eof: return root;
                 default:
-                    throw new Exception($"Unexpected token '{Enum.GetName(typeof(TokenType), CurrentToken.Type)}' at {CurrentToken.Position}");
+                    throw new SourceException($"Unexpected token '{Enum.GetName(typeof(TokenType), CurrentToken.Type)}' at {CurrentToken.Position}");
             }
         }
 
