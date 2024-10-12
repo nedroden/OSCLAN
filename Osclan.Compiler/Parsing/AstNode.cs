@@ -38,7 +38,7 @@ public class AstNode
     /// <summary>
     /// Modifiers for the node, e.g., 'public' or 'private'.
     /// </summary>
-    public List<Modifier> Modifiers { get; set; } = new();
+    public List<Modifier> Modifiers { get; set; } = [];
 
     /// <summary>
     /// String representations of the modifiers, for intermediate serialization purposes.
@@ -57,23 +57,6 @@ public class AstNode
     public string? Path { get; set; }
 
     /// <summary>
-    /// The path to the field, split into partial paths, e.g., (list)::element::first-name -> [element, first-name].
-    /// </summary>
-    public List<PartialPath> PartialPaths =>
-        Path?.Split("::").Select(partialPath =>
-        {
-            var parts = partialPath.Split('_');
-
-            // Dynamic offsets (e.g., $1), will not serialize correctly. Hence, just ignore then for now.
-            if (parts.Length > 1 && !uint.TryParse(parts[1], out _))
-            {
-                parts[1] = uint.MaxValue.ToString();
-            }
-
-            return new PartialPath(parts[0], parts.Length > 1 ? uint.Parse(parts[1]) : null);
-        }).ToList() ?? [];
-
-    /// <summary>
     /// Used by the analyzer to keep track of the symbol table that the variable/type was resolved in. This
     /// can then be used in the code generation process.
     /// </summary>
@@ -83,11 +66,11 @@ public class AstNode
     /// The children of the node.
     /// </summary>
     public List<AstNode> Children { get; set; } = [];
-}
 
-/// <summary>
-/// Represents a partial path to a field, e.g., elements_1
-/// </summary>
-/// <param name="Name">The string part of the path.</param>
-/// <param name="Offset">An offset, e.g., array element index.</param>
-public record PartialPath(string Name, uint? Offset);
+    /// <summary>
+    /// Meta information, used during semantic analysis to keep track of things like the procedure name.
+    /// NOTE: I know this is an ugly solution, but it is a temporary one, until I find a better way to do this.
+    /// And if I don't: remember nothing is as permanent as a temporary solution.
+    /// </summary>
+    public Dictionary<string, string> Meta { get; set; } = [];
+}

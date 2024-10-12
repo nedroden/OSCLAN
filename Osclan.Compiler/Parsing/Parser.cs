@@ -255,10 +255,17 @@ public class Parser : IParser
     {
         Consume(TokenType.Ret);
 
+        var children = new List<AstNode>();
+
+        if (CurrentToken is { Type: TokenType.Identifier or TokenType.String or TokenType.Number })
+        {
+            children.AddRange([ParseAssignment(false, false, true)]);
+        }
+
         return new AstNode
         {
             Type = AstNodeType.Ret,
-            Children = { ParseAssignment(false, false, true) }
+            Children = children
         };
     }
 

@@ -160,19 +160,19 @@ public class SymbolTable
         Variables.Exists(v => v.Name == Mangler.Mangle(name));
 
     public bool TypeInScope(string name) =>
-        TypeInCurrentScope(name) || (Parent?.TypeInScope(name) ?? throw new Exception($"Unresolved type {name}."));
+        TypeInCurrentScope(name) || (Parent?.TypeInScope(name) ?? throw new SourceException($"Unresolved type {name}."));
 
     public bool TypeInCurrentScope(string name) =>
         Types.Exists(t => t.Name == Mangler.Mangle(name));
 
     public Variable ResolveVariable(string name) =>
-        Variables.Find(v => v.Name == Mangler.Mangle(name)) ?? Parent?.ResolveVariable(name) ?? throw new Exception($"Unresolved variable {name}.");
+        Variables.Find(v => v.Name == Mangler.Mangle(name)) ?? Parent?.ResolveVariable(name) ?? throw new SourceException($"Unresolved variable {name}.");
 
     public Type ResolveType(string name) =>
-        Types.Find(t => t.Name == Mangler.Mangle(name)) ?? Parent?.ResolveType(name) ?? throw new Exception($"Unresolved type {name}.");
+        Types.Find(t => t.Name == Mangler.Mangle(name)) ?? Parent?.ResolveType(name) ?? throw new SourceException($"Unresolved type {name}.");
 
     public Type ResolveTypeByMangledName(string name) =>
-        Types.Find(t => t.Name == name) ?? Parent?.ResolveTypeByMangledName(name) ?? throw new Exception($"Unresolved type {name}.");
+        Types.Find(t => t.Name == name) ?? Parent?.ResolveTypeByMangledName(name) ?? throw new SourceException($"Unresolved type {name}.");
 
     public Type ResolveField(Type type, string remainingPath)
     {
@@ -189,7 +189,7 @@ public class SymbolTable
         // Was the field found at all?
         if (!type.Fields.ContainsKey(fieldName))
         {
-            throw new Exception($"Field '{remainingPath}' not found in type {type.UnmangledName}.");
+            throw new SourceException($"Field '{remainingPath}' not found in type {type.UnmangledName}.");
         }
 
         var field = type.Fields[fieldName];
@@ -206,6 +206,15 @@ public class SymbolTable
 
         return parts.Count() > 1 ? ResolveField(type, remainingPath) : field;
     }
+
+    /// <summary>
+    /// Resolves a procedure by its unmangled name.
+    /// </summary>
+    /// <param name="name">The unmangled name of the procedure.</param>
+    /// <returns>The procedure, if found.</returns>
+    /// <exception cref="SourceException">Thrown when the procedure as not found</exception>
+    public Procedure ResolveProcedure(string name) =>
+        Procedures.Find(t => t.Name == Mangler.Mangle(name)) ?? Parent?.ResolveProcedure(name) ?? throw new SourceException($"Unresolved procedure {name}.");
 
     /// <summary>
     /// Adds the built-in types to the symbol table.

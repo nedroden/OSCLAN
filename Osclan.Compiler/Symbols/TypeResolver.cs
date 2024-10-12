@@ -11,8 +11,24 @@ public class TypeService
     /// <param name="from">The source data.</param>
     /// <param name="to">The destination data (= variable).</param>
     /// <returns></returns>
-    public TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to)
+    public TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to) =>
+        VerifyAssignmentCompatibility(from, to, false);
+
+    /// <summary>
+    /// Checks if the assignment is valid and, if so, whether or not it could lead to possible data loss.
+    /// </summary>
+    /// <param name="from">The source data.</param>
+    /// <param name="to">The destination data (= variable).</param>
+    /// <returns></returns>
+    public TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to, bool strict)
     {
+        if (strict)
+        {
+            return from.Name == to.Name && from.SizeInBytes == to.SizeInBytes
+                ? TypeCompatibility.Ok
+                : TypeCompatibility.Illegal;
+        }
+
         if (from.Name == Mangler.Mangle("string") && (to.Name == Mangler.Mangle("int") || to.Name == Mangler.Mangle("uint")))
         {
             return TypeCompatibility.Illegal;
@@ -84,18 +100,18 @@ public class TypeService
         return type;
     }
 
-    public void IndexType(Type type)
+    public static void IndexType(Type type)
     {
         uint offset = 0;
         type.AddressOffset = 0;
 
         foreach (var field in type.Fields)
         {
-            IndexType(field.Value, offset);
+            offset = IndexType(field.Value, offset);
         }
     }
 
-    public uint IndexType(Type type, uint totalOffset)
+    public static uint IndexType(Type type, uint totalOffset)
     {
         type.AddressOffset = totalOffset;
 

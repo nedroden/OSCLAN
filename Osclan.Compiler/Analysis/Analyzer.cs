@@ -57,7 +57,7 @@ public class Analyzer : IAnalyzer
 
         var typeService = new TypeService();
         var structType = typeService.GetType(_symbolTable, node);
-        typeService.IndexType(structType);
+        TypeService.IndexType(structType);
 
         // If possible, add the type to the parent symbol table so that it is usable by variables in the same scope.
         (_symbolTable.Parent ?? _symbolTable).AddType(structType);
@@ -126,6 +126,23 @@ public class Analyzer : IAnalyzer
                     SizeInBytes = type.SizeInBytes
                 });
             }
+            else if (child.Type == AstNodeType.Ret)
+            {
+                // Variables might not yet have been declared, so check this later.
+                child.Meta["procedure-name"] = procedure.Name;
+
+                // But we can check if this leads to unreachable code.
+                if (node.Children.Last() != child)
+                {
+                    throw new SourceException($"Unreachable code detected in '{procedure.Name}'");
+                }
+            }
+        }
+
+        // If the return type is void, there must not be a return value.
+        if (procedure.ReturnType is null && node.Children.Any(c => c.Type == AstNodeType.Ret && c.Children.Count > 0))
+        {
+            throw new SourceException($"Procedure '{procedure.Name}' cannot return a value.");
         }
 
         _symbolTable.AddProcedure(procedure);
@@ -134,17 +151,23 @@ public class Analyzer : IAnalyzer
     /// <summary>
     /// Performs a return type check. This method is called when a procedure is being analyzed and a 'ret' statement is encountered.
     /// </summary>
-    /// <param name="procedure">The procedure in which the return statement is located.</param>
     /// <param name="returnNode">The return statement node.</param>
     /// <exception cref="SourceException">Thrown when the return value is invalid.</exception>
-    private void PerformReturnTypeCheck(Procedure procedure, AstNode returnNode)
+    private void PerformReturnTypeCheck(AstNode returnNode)
     {
         bool isVoid = returnNode.Children.Count == 0;
+
+        var procedure = _symbolTable.ResolveProcedure(returnNode.Meta["procedure-name"]);
 
         // If the procedure's return type is void and the return statement is void, then we're good.
         if (procedure.ReturnType is null && isVoid)
         {
             return;
+        }
+
+        if (procedure.ReturnType is not null && isVoid)
+        {
+            throw new SourceException($"Procedure '{procedure.UnmangledName}' must return a value.");
         }
 
         var typeService = new TypeService();
@@ -155,9 +178,9 @@ public class Analyzer : IAnalyzer
         {
             var resolvedType = _symbolTable.ResolveType(returnValueNode.RawType?.Name ?? string.Empty);
 
-            if (isVoid || typeService.VerifyAssignmentCompatibility(resolvedType, procedure.ReturnType!) != TypeCompatibility.Ok)
+            if (isVoid || typeService.VerifyAssignmentCompatibility(resolvedType, procedure.ReturnType!, true) != TypeCompatibility.Ok)
             {
-                throw new SourceException("Invalid return type.");
+                throw new SourceException($"Invalid return type for procedure '{procedure.UnmangledName}'.");
             }
         }
 
@@ -166,9 +189,9 @@ public class Analyzer : IAnalyzer
         {
             var variable = _symbolTable.ResolveVariable(returnValueNode.Children[0].Value ?? throw new CompilerException("Variable name cannot be empty."));
 
-            if (isVoid || typeService.VerifyAssignmentCompatibility(_symbolTable.ResolveType(variable.TypeName), procedure.ReturnType!) != TypeCompatibility.Ok)
+            if (isVoid || typeService.VerifyAssignmentCompatibility(_symbolTable.ResolveTypeByMangledName(variable.TypeName), procedure.ReturnType!, true) != TypeCompatibility.Ok)
             {
-                throw new SourceException("Invalid return type.");
+                throw new SourceException($"Invalid return type for procedure '{procedure.UnmangledName}'.");
             }
         }
     }
@@ -269,6 +292,9 @@ public class Analyzer : IAnalyzer
             case AstNodeType.Variable:
                 AnalyzeVariableReference(node);
                 break;
+            case AstNodeType.Ret:
+                PerformReturnTypeCheck(node);
+                break;
         }
 
         foreach (var child in node.Children)
@@ -276,7 +302,7 @@ public class Analyzer : IAnalyzer
             var createSubscope = child.Type == AstNodeType.Procedure || child.Type == AstNodeType.Structure;
 
             // If we have a procedure or a structure, we should create a subscope, but only if they have any children.
-            if (createSubscope && child.Children.Any())
+            if (createSubscope && child.Children.Count != 0)
             {
                 _symbolTable = new SymbolTable(parent: symbolTable);
             }
@@ -294,7 +320,7 @@ public class Analyzer : IAnalyzer
     /// <summary>
     /// Starts the semantic analysis.
     /// </summary>
-    /// 
+    /// <param name="ast">The root node of the AST.</param>
     /// <returns>A processed version of the AST.</returns>
     /// <exception cref="Exception">Thrown when certain conditions, such as the existence of an entry point, are not met.</exception>
     public AstNode Analyze(AstNode ast)
