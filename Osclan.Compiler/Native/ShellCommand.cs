@@ -13,21 +13,12 @@ public record ShellCommandResult(int ExitCode, string Stdout, string Stderr);
 /// <summary>
 /// Represents a shell command that can be executed.
 /// </summary>
-public class ShellCommand
+/// <param name="command">The command name.</param>
+/// <param name="arguments">The arguments passed.</param>
+public class ShellCommand(string command, string arguments)
 {
-    private readonly string _command;
-    private readonly string _arguments;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ShellCommand"/> class.
-    /// </summary>
-    /// <param name="command">The command name.</param>
-    /// <param name="arguments">The arguments passed.</param>
-    public ShellCommand(string command, string arguments)
-    {
-        _command = command;
-        _arguments = arguments;
-    }
+    private readonly string _command = command;
+    private readonly string _arguments = arguments;
 
     /// <summary>
     /// Starts the shell command and returns the result.

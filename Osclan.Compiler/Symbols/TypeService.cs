@@ -1,9 +1,10 @@
+using System.Linq;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Parsing;
 
 namespace Osclan.Compiler.Symbols;
 
-public class TypeService
+public static class TypeService
 {
     /// <summary>
     /// Checks if the assignment is valid and, if so, whether or not it could lead to possible data loss.
@@ -11,7 +12,7 @@ public class TypeService
     /// <param name="from">The source data.</param>
     /// <param name="to">The destination data (= variable).</param>
     /// <returns></returns>
-    public TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to) =>
+    public static TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to) =>
         VerifyAssignmentCompatibility(from, to, false);
 
     /// <summary>
@@ -20,7 +21,7 @@ public class TypeService
     /// <param name="from">The source data.</param>
     /// <param name="to">The destination data (= variable).</param>
     /// <returns></returns>
-    public TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to, bool strict)
+    public static TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to, bool strict)
     {
         if (strict)
         {
@@ -49,7 +50,7 @@ public class TypeService
     /// <param name="node">The node to resolve the type of.</param>
     /// <returns>The found type.</returns>
     /// <exception cref="CompilerException">Thrown when a node name is empty.</exception>
-    public Type GetType(SymbolTable symbolTable, AstNode node)
+    public static Type GetType(SymbolTable symbolTable, AstNode node)
     {
         var type = new Type(node.RawType?.Name ?? string.Empty)
         {
@@ -89,7 +90,6 @@ public class TypeService
 
             compositeChildType.IsArray = child.RawType is { Size: > 1 };
 
-            // TODO: check if this works properly. Since it might not.
             compositeChildType.SizeInBytes += compositeChildType.IsArray
                 ? child.RawType!.Size * compositeChildType.SizeInBytes
                 : compositeChildType.SizeInBytes;
@@ -115,14 +115,14 @@ public class TypeService
     {
         type.AddressOffset = totalOffset;
 
-        foreach (var field in type.Fields)
+        foreach (var field in type.Fields.Select(field => field.Value))
         {
-            field.Value.AddressOffset = totalOffset;
-            totalOffset += field.Value.SizeInBytes;
+            field.AddressOffset = totalOffset;
+            totalOffset += field.SizeInBytes;
 
-            if (field.Value.Fields.Count > 0)
+            if (field.Fields.Count > 0)
             {
-                totalOffset = IndexType(field.Value, totalOffset);
+                totalOffset = IndexType(field, totalOffset);
             }
         }
 

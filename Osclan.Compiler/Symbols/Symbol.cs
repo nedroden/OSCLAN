@@ -15,7 +15,7 @@ public abstract record Symbol
 
     public SymbolType Type { get; set; }
 
-    public Symbol(string name, SymbolType type)
+    protected Symbol(string name, SymbolType type)
     {
         Name = name;
         Type = type;

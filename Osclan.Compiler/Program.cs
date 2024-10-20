@@ -4,7 +4,7 @@ using Osclan.Compiler.Exceptions;
 
 namespace Osclan.Compiler
 {
-    class Program
+    static class Program
     {
         static void Main(string[] args) =>
             Parser.Default.ParseArguments<CompilerOptions>(args).WithParsed(o =>

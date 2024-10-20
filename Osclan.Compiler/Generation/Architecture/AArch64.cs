@@ -4,11 +4,9 @@ using Osclan.Compiler.Symbols;
 
 namespace Osclan.Compiler.Generation.Architecture;
 
-public class AArch64Strategy : IGenerationStrategy
+public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
 {
-    private readonly Emitter _emitter;
-
-    public AArch64Strategy(Emitter emitter) => _emitter = emitter;
+    private readonly Emitter _emitter = emitter;
 
     public string GenerateIl(AstNode tree)
     {
@@ -38,7 +36,7 @@ public class AArch64Strategy : IGenerationStrategy
         _emitter.EmitNewLine();
 
         _emitter.EmitDirect("_main:");                              // Entry point
-        _emitter.EmitOpcode("bl", $"p_{Mangler.Mangle("main")}");   // Go to main procedure
+        _emitter.EmitOpcode("bl", $"{Mangler.Mangle("main")}");     // Go to main procedure
         _emitter.EmitOpcode("mov", "x0, xzr");                      // Exit code 0
         _emitter.EmitOpcode("mov", "x16, #1");                      // Syscall 1 = exit
         _emitter.EmitOpcode("svc", "#0x80");                        // macOS supervisor call
@@ -51,7 +49,7 @@ public class AArch64Strategy : IGenerationStrategy
         node.Value = Mangler.Mangle(node.Value ?? string.Empty);
 
         // Procedure prolog
-        _emitter.EmitDirect($"p_{node.Value}:");
+        _emitter.EmitDirect($"{node.Value}:");
         _emitter.EmitOpcode("stp", "lr, fp, [sp, #-16]!");          // Save LR and FP on the stack
         _emitter.EmitOpcode("mov", "fp, sp");                       // Set frame pointer
 

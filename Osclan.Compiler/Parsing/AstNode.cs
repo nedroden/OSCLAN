@@ -22,7 +22,7 @@ public class AstNode
     /// <summary>
     /// The type of the value, if a variable. Determined during the analysis process.
     /// </summary>
-    public Type? TypeInformation { get; set; }
+    public Symbols.Type? TypeInformation { get; set; }
 
     /// <summary>
     /// Preliminary information about the type, such as the name and offset.

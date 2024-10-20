@@ -1,16 +1,16 @@
 using System.Linq;
 using NSubstitute;
 using Osclan.Compiler.Exceptions;
-using Osclan.Compiler.Io;
+using Osclan.Compiler.Io.Abstractions;
 using Osclan.Compiler.Tokenization;
 
 namespace Osclan.Compiler.Test.Tokenization;
 
 public class TokenizerTests
 {
-    private readonly IInputFileReader _readerMock;
+    private readonly IIoService _readerMock;
 
-    public TokenizerTests() => _readerMock = Substitute.For<IInputFileReader>();
+    public TokenizerTests() => _readerMock = Substitute.For<IIoService>();
 
     [Fact]
     public void Test_Directive_Is_Tokenized()

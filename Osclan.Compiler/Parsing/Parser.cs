@@ -393,11 +393,11 @@ public class Parser : IParser
                 var assignmentNode = new AstNode { Type = AstNodeType.Assignment };
                 var identifier = Consume(TokenType.Identifier);
 
-                assignmentNode.Children.AddRange(new List<AstNode>
-                {
-                    new AstNode { Type = AstNodeType.Field, Value = identifier.Value },
-                    new AstNode { Type = AstNodeType.Variable, Value = identifier.Value }
-                });
+                assignmentNode.Children.AddRange(
+                [
+                    new() { Type = AstNodeType.Field, Value = identifier.Value },
+                    new() { Type = AstNodeType.Variable, Value = identifier.Value }
+                ]);
                 declarationNode.Children.Add(assignmentNode);
 
                 continue;

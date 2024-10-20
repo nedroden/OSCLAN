@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Osclan.Compiler.Analysis.Abstractions;
 using Osclan.Compiler.Exceptions;
-using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 
@@ -36,7 +35,7 @@ public class Analyzer : IAnalyzer
     /// Checks whether or not an entry point with the signature 'public [uint(4)]::main()' exists.
     /// </summary>
     /// <returns>True if a method exists with the proper signature.</returns>
-    private bool ValidEntryPointExists(AstNode ast) => ast.Children.Any(c =>
+    private static bool ValidEntryPointExists(AstNode ast) => ast.Children.Exists(c =>
         c.Type == AstNodeType.Procedure
         && Mangler.Mangle(c.RawType?.Name ?? string.Empty) == Mangler.Mangle("uint")
         && c.RawType?.Size == 4
@@ -55,8 +54,7 @@ public class Analyzer : IAnalyzer
             return;
         }
 
-        var typeService = new TypeService();
-        var structType = typeService.GetType(_symbolTable, node);
+        var structType = TypeService.GetType(_symbolTable, node);
         TypeService.IndexType(structType);
 
         // If possible, add the type to the parent symbol table so that it is usable by variables in the same scope.
@@ -79,9 +77,8 @@ public class Analyzer : IAnalyzer
 
         var type = _symbolTable.ResolveType(variableNode.RawType?.Name ?? string.Empty);
 
-        var typeService = new TypeService();
-        var variableType = typeService.GetType(_symbolTable, variableNode);
-        var assignmentStatus = typeService.VerifyAssignmentCompatibility(variableType, type);
+        var variableType = TypeService.GetType(_symbolTable, variableNode);
+        var assignmentStatus = TypeService.VerifyAssignmentCompatibility(variableType, type);
 
         // TODO: Improve the error messages, we want a position here.
         switch (assignmentStatus)
@@ -132,7 +129,7 @@ public class Analyzer : IAnalyzer
                 child.Meta["procedure-name"] = procedure.Name;
 
                 // But we can check if this leads to unreachable code.
-                if (node.Children.Last() != child)
+                if (node.Children[^1] != child)
                 {
                     throw new SourceException($"Unreachable code detected in '{procedure.Name}'");
                 }
@@ -140,12 +137,12 @@ public class Analyzer : IAnalyzer
         }
 
         // If the return type is void, there must not be a return value.
-        if (procedure.ReturnType is null && node.Children.Any(c => c.Type == AstNodeType.Ret && c.Children.Count > 0))
+        if (procedure.ReturnType is null && node.Children.Exists(c => c.Type == AstNodeType.Ret && c.Children.Count > 0))
         {
             throw new SourceException($"Procedure '{procedure.Name}' cannot return a value.");
         }
 
-        _symbolTable.AddProcedure(procedure);
+        (_symbolTable.Parent ?? _symbolTable).AddProcedure(procedure);
     }
 
     /// <summary>
@@ -170,15 +167,14 @@ public class Analyzer : IAnalyzer
             throw new SourceException($"Procedure '{procedure.UnmangledName}' must return a value.");
         }
 
-        var typeService = new TypeService();
-        var returnValueNode = returnNode.Children.First();
+        var returnValueNode = returnNode.Children[0];
 
         // Return value is constant
         if (returnValueNode.RawType?.Name is not null)
         {
             var resolvedType = _symbolTable.ResolveType(returnValueNode.RawType?.Name ?? string.Empty);
 
-            if (isVoid || typeService.VerifyAssignmentCompatibility(resolvedType, procedure.ReturnType!, true) != TypeCompatibility.Ok)
+            if (isVoid || TypeService.VerifyAssignmentCompatibility(resolvedType, procedure.ReturnType!, true) != TypeCompatibility.Ok)
             {
                 throw new SourceException($"Invalid return type for procedure '{procedure.UnmangledName}'.");
             }
@@ -189,7 +185,7 @@ public class Analyzer : IAnalyzer
         {
             var variable = _symbolTable.ResolveVariable(returnValueNode.Children[0].Value ?? throw new CompilerException("Variable name cannot be empty."));
 
-            if (isVoid || typeService.VerifyAssignmentCompatibility(_symbolTable.ResolveTypeByMangledName(variable.TypeName), procedure.ReturnType!, true) != TypeCompatibility.Ok)
+            if (isVoid || TypeService.VerifyAssignmentCompatibility(_symbolTable.ResolveTypeByMangledName(variable.TypeName), procedure.ReturnType!, true) != TypeCompatibility.Ok)
             {
                 throw new SourceException($"Invalid return type for procedure '{procedure.UnmangledName}'.");
             }
@@ -207,12 +203,12 @@ public class Analyzer : IAnalyzer
         var typeName = node.RawType;
 
         // This is an argument being passed rather than declared, or it's a directive argument.
-        if (typeName is null || string.IsNullOrWhiteSpace(typeName?.Name) || node.Children.Count > 0)
+        if (typeName is null || string.IsNullOrWhiteSpace(typeName.Name) || node.Children.Count > 0)
         {
             return;
         }
 
-        var type = _symbolTable.ResolveType(typeName?.Name ?? throw new CompilerException("Type name cannot be empty."));
+        var type = _symbolTable.ResolveType(typeName.Name ?? throw new CompilerException("Type name cannot be empty."));
 
         var variable = new Variable(node.Value ?? throw new CompilerException("Argument name cannot be empty."))
         {
@@ -247,6 +243,17 @@ public class Analyzer : IAnalyzer
                 AnalyzeReferredField(node, variable);
             }
 
+            // Is this variable being used as a procedure argument?
+            if (node.Meta.TryGetValue("required-type-match", out string? requiredTypeMatch))
+            {
+                var requiredType = _symbolTable.ResolveTypeByMangledName(requiredTypeMatch);
+
+                if (TypeService.VerifyAssignmentCompatibility(_symbolTable.ResolveTypeByMangledName(variable.TypeName), requiredType, true) != TypeCompatibility.Ok)
+                {
+                    throw new SourceException($"Invalid type for variable '{variable.Name}'. Expected {requiredType.UnmangledName}, got {_symbolTable.ResolveTypeByMangledName(variable.TypeName).UnmangledName}.");
+                }
+            }
+
             return;
         }
 
@@ -261,10 +268,67 @@ public class Analyzer : IAnalyzer
     /// </summary>
     /// <param name="node">The input node.</param>
     /// <param name="variable">The variable that should contain the referred fields.</param>
-    private void AnalyzeReferredField(AstNode node, Variable variable)
+    private void AnalyzeReferredField(AstNode node, Variable variable) =>
+        _symbolTable.ResolveField(_symbolTable.ResolveTypeByMangledName(variable.TypeName), node.Path ?? string.Empty);
+
+    /// <summary>
+    /// Analyzes a procedure call. This method is called when a procedure call is encountered in the AST.
+    /// </summary>
+    /// <param name="node">The node representin the procedure call.</param>
+    /// <exception cref="CompilerException">Thrown when the procedure call node does not contain a value.</exception>
+    /// <exception cref="SourceException">Thrown when the procedure call is invalid.</exception>
+    private void AnalyzeProcedureCall(AstNode node)
     {
-        var varType = _symbolTable.ResolveTypeByMangledName(variable.TypeName);
-        _symbolTable.ResolveField(varType, node.Path ?? string.Empty);
+        var procedure = _symbolTable.ResolveProcedure(node.Value ?? throw new CompilerException("Procedure name cannot be empty."));
+        var arguments = node.Children.Where(child => child.Type == AstNodeType.Argument).ToList();
+
+        if (procedure.Parameters.Count != arguments.Count)
+        {
+            throw new SourceException($"Invalid number of arguments for procedure '{procedure.UnmangledName}'. Expected {procedure.Parameters.Count}, got {arguments.Count}.");
+        }
+
+        var pairs = procedure.Parameters.Zip(arguments, (p, a) => new { Parameter = p, Argument = a });
+        foreach (var pair in pairs)
+        {
+            var parameter = pair.Parameter;
+            var argument = pair.Argument.Children[0];
+
+            // TODO: Find a better way to do this.
+            // We don't know what the type is yet. But we know what it should be.
+            argument.Meta["required-type-match"] = parameter.TypeName;
+        }
+    }
+
+    private void AnalyzeString(AstNode node)
+    {
+        node.TypeInformation = _symbolTable.ResolveType("string");
+
+        // String is used as procedure argument.
+        if (node.Meta.TryGetValue("required-type-match", out string? requiredTypeMatch))
+        {
+            var requiredType = _symbolTable.ResolveTypeByMangledName(requiredTypeMatch);
+
+            if (TypeService.VerifyAssignmentCompatibility(node.TypeInformation, requiredType, true) != TypeCompatibility.Ok)
+            {
+                throw new SourceException($"Expected {requiredType.UnmangledName}, got string.");
+            }
+        }
+    }
+
+    private void AnalyzeScalar(AstNode node)
+    {
+        node.TypeInformation = _symbolTable.ResolveType("int");
+
+        // Scalar is used as procedure argument.
+        if (node.Meta.TryGetValue("required-type-match", out string? requiredTypeMatch))
+        {
+            var requiredType = _symbolTable.ResolveTypeByMangledName(requiredTypeMatch);
+
+            if (TypeService.VerifyAssignmentCompatibility(node.TypeInformation, requiredType, true) != TypeCompatibility.Ok)
+            {
+                throw new SourceException($"Expected {requiredType.UnmangledName}, got int.");
+            }
+        }
     }
 
     /// <summary>
@@ -294,6 +358,15 @@ public class Analyzer : IAnalyzer
                 break;
             case AstNodeType.Ret:
                 PerformReturnTypeCheck(node);
+                break;
+            case AstNodeType.ProcedureCall:
+                AnalyzeProcedureCall(node);
+                break;
+            case AstNodeType.String:
+                AnalyzeString(node);
+                break;
+            case AstNodeType.Scalar:
+                AnalyzeScalar(node);
                 break;
         }
 

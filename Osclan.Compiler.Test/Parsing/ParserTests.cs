@@ -41,7 +41,7 @@ public class ParserTests
             new(TokenType.String) { Value = "Some.Module" }
         };
 
-        var directiveNode = _parser.Parse(tokens).Children.First();
+        var directiveNode = _parser.Parse(tokens).Children[0];
 
         Assert.Equal(AstNodeType.Directive, directiveNode.Type);
         Assert.Equal("import", directiveNode.Value);

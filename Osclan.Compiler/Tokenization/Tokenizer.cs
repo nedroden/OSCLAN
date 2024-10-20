@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Extensions;
 using Osclan.Compiler.Io;
+using Osclan.Compiler.Io.Abstractions;
 using Osclan.Compiler.Tokenization.Abstractions;
 
 namespace Osclan.Compiler.Tokenization;
@@ -50,11 +52,11 @@ public class Tokenizer : ITokenizer
     /// <param name="options">Compilation options.</param>
     /// <param name="directory">The input directory.</param>
     /// <param name="filename">The input filename.</param>
-    /// <param name="reader">A file reader.</param>
+    /// <param name="ioService">A file reader.</param>
     /// <exception cref="SourceException">Thrown when the source file is empty.</exception>
-    public Tokenizer(CompilerOptions options, string directory, string filename, IInputFileReader reader)
+    public Tokenizer(CompilerOptions options, string directory, string filename, IIoService ioService)
     {
-        var source = reader.Read(Path.Combine(directory, filename));
+        var source = ioService.Read(Path.Combine(directory, filename));
 
         _options = options;
         _source = source;
@@ -269,8 +271,6 @@ public class Tokenizer : ITokenizer
 
         while (!IsAtEof())
         {
-            Token? token = null;
-
             if (IsAtEol())
             {
                 _position.Line++;
@@ -297,27 +297,10 @@ public class Tokenizer : ITokenizer
                 continue;
             }
 
-            foreach (var sequence in _sequenceMapping.Keys)
-            {
-                if (IsAtSequence(sequence))
-                {
-                    // Things such as init-list should not be matched
-                    if (_sourceLength > _position.Offset + sequence.Length
-                        && _source[_position.Offset + sequence.Length].IsIdentifierChar()
-                        && sequence != "::")
-                    {
-                        continue;
-                    }
-
-                    token = _sequenceMapping[sequence] with { Position = _position };
-                    tokens.Add(token);
-                    AdvanceSequence(sequence);
-                    break;
-                }
-            }
-
+            var token = FindSequenceToken();
             if (token is not null)
             {
+                tokens.Add(token);
                 continue;
             }
 
@@ -357,5 +340,25 @@ public class Tokenizer : ITokenizer
         }
 
         return tokens;
+    }
+
+    private Token? FindSequenceToken()
+    {
+        foreach (var sequence in _sequenceMapping.Keys.Where(IsAtSequence))
+        {
+            // Things such as init-list should not be matched
+            if (_sourceLength > _position.Offset + sequence.Length
+                && _source[_position.Offset + sequence.Length].IsIdentifierChar()
+                && sequence != "::")
+            {
+                continue;
+            }
+
+            AdvanceSequence(sequence);
+
+            return _sequenceMapping[sequence] with { Position = _position };
+        }
+
+        return null;
     }
 }

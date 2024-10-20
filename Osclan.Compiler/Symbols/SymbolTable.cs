@@ -1,10 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using Osclan.Compiler.Exceptions;
-using Osclan.Compiler.Meta;
 
 namespace Osclan.Compiler.Symbols;
 
@@ -182,9 +180,9 @@ public class SymbolTable
         var parts = remainingPath.Split("::");
 
         // Split element_0 into the field name and the offset.
-        var split = parts.First().Split("_");
-        var offset = split.Count() > 1 ? uint.Parse(split.Last()) : (uint?)null;
-        var fieldName = Mangler.Mangle(split.First());
+        var split = parts[0].Split("_");
+        var offset = split.Length > 1 ? uint.Parse(split[^1]) : (uint?)null;
+        var fieldName = Mangler.Mangle(split[0]);
 
         // Was the field found at all?
         if (!type.Fields.ContainsKey(fieldName))

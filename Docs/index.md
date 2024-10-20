@@ -55,6 +55,13 @@ The language has the following (case-insensitive) keywords:
 | increment   | Increments a scalar value by 1                                                                 |
 | decrement   | Decrements a scalar value by 1                                                                 |
 
+### Directives
+| **Directive** | **Possible values** | **Description** |
+| --- | --- | --- |
+| import | _any string_ |  Imports a module. |
+| mangler | enable, disable | Enables/disables the identifier mangler. |
+| module | _any string_ | Sets the name of the current module. |
+
 ## Todo
 
 - [ ] Code generation (AArch64 assembly)
@@ -71,6 +78,7 @@ The language has the following (case-insensitive) keywords:
 - [ ] Statistics (e.g., number of tokens per token type)
 - [ ] Syntax highlighting in VS Code
 - [ ] Unit tests (once tokenizer and parser are done)
+- [ ] Assembly code blocks
 
 **Note:** optimizer and more advanced analyzer will be added _after_ a basic code generator.
 
