@@ -80,7 +80,6 @@ public class Analyzer : IAnalyzer
         var variableType = TypeService.GetType(_symbolTable, variableNode);
         var assignmentStatus = TypeService.VerifyAssignmentCompatibility(variableType, type);
 
-        // TODO: Improve the error messages, we want a position here.
         switch (assignmentStatus)
         {
             case TypeCompatibility.Illegal:
@@ -126,7 +125,7 @@ public class Analyzer : IAnalyzer
             else if (child.Type == AstNodeType.Ret)
             {
                 // Variables might not yet have been declared, so check this later.
-                child.Meta["procedure-name"] = procedure.Name;
+                child.Meta[MetaDataKey.ProcedureName] = procedure.Name;
 
                 // But we can check if this leads to unreachable code.
                 if (node.Children[^1] != child)
@@ -154,7 +153,7 @@ public class Analyzer : IAnalyzer
     {
         bool isVoid = returnNode.Children.Count == 0;
 
-        var procedure = _symbolTable.ResolveProcedure(returnNode.Meta["procedure-name"]);
+        var procedure = _symbolTable.ResolveProcedure(returnNode.Meta[MetaDataKey.ProcedureName]);
 
         // If the procedure's return type is void and the return statement is void, then we're good.
         if (procedure.ReturnType is null && isVoid)
@@ -244,7 +243,7 @@ public class Analyzer : IAnalyzer
             }
 
             // Is this variable being used as a procedure argument?
-            if (node.Meta.TryGetValue("required-type-match", out string? requiredTypeMatch))
+            if (node.Meta.TryGetValue(MetaDataKey.RequiredTypeMatch, out string? requiredTypeMatch))
             {
                 var requiredType = _symbolTable.ResolveTypeByMangledName(requiredTypeMatch);
 
@@ -293,9 +292,8 @@ public class Analyzer : IAnalyzer
             var parameter = pair.Parameter;
             var argument = pair.Argument.Children[0];
 
-            // TODO: Find a better way to do this.
             // We don't know what the type is yet. But we know what it should be.
-            argument.Meta["required-type-match"] = parameter.TypeName;
+            argument.Meta[MetaDataKey.RequiredTypeMatch] = parameter.TypeName;
         }
     }
 
@@ -304,7 +302,7 @@ public class Analyzer : IAnalyzer
         node.TypeInformation = _symbolTable.ResolveType("string");
 
         // String is used as procedure argument.
-        if (node.Meta.TryGetValue("required-type-match", out string? requiredTypeMatch))
+        if (node.Meta.TryGetValue(MetaDataKey.RequiredTypeMatch, out string? requiredTypeMatch))
         {
             var requiredType = _symbolTable.ResolveTypeByMangledName(requiredTypeMatch);
 
@@ -320,7 +318,7 @@ public class Analyzer : IAnalyzer
         node.TypeInformation = _symbolTable.ResolveType("int");
 
         // Scalar is used as procedure argument.
-        if (node.Meta.TryGetValue("required-type-match", out string? requiredTypeMatch))
+        if (node.Meta.TryGetValue(MetaDataKey.RequiredTypeMatch, out string? requiredTypeMatch))
         {
             var requiredType = _symbolTable.ResolveTypeByMangledName(requiredTypeMatch);
 

@@ -1,4 +1,8 @@
+using System;
 using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Text;
 using Osclan.Compiler.Io.Abstractions;
 
 namespace Osclan.Compiler.Io;
@@ -47,5 +51,32 @@ public class DiskService : IIoService
         }
 
         File.WriteAllText(path, content);
+    }
+
+    /// <summary>
+    /// Copies the native libraries to the output directory.
+    /// </summary>
+    /// <param name="path">The output path.</param>
+    public void CopyNativeLibs(string path)
+    {
+        var resourceNames = Array.FindAll(Assembly.GetExecutingAssembly().GetManifestResourceNames(), element => element.Contains("_native.s"));
+
+        foreach (var resourceName in resourceNames.Where(n => !string.IsNullOrWhiteSpace(n)))
+        {
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
+
+            if (stream is null)
+            {
+                return;
+            }
+
+            var streamReader = new StreamReader(stream, Encoding.UTF8);
+            var contents = streamReader.ReadToEnd();
+
+            // Get the filename with its extension, e.g., 'aarch64_native.s'
+            var targetName = string.Join('.', resourceName.Split('.').Reverse().Take(2).Reverse());
+
+            File.WriteAllText($"{path}/{targetName}", contents);
+        }
     }
 }

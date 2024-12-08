@@ -5,6 +5,7 @@ using System.Text.Json;
 using Osclan.Compiler.Analysis;
 using Osclan.Compiler.Analysis.Abstractions;
 using Osclan.Compiler.Assembler.Abstractions;
+using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Generation;
 using Osclan.Compiler.Generation.Abstractions;
 using Osclan.Compiler.Generation.Architecture;
@@ -28,6 +29,11 @@ public class Compiler
     private readonly IAnalyzer _analyzer;
     private readonly IGenerator _generator;
     private readonly IAssembler _assembler;
+
+    private static readonly JsonSerializerOptions SerializationOptions = new()
+    {
+        WriteIndented = true
+    };
 
     public Compiler(CompilerOptions options) : this(options, new DiskService(options)) { }
 
@@ -81,11 +87,13 @@ public class Compiler
         _ioService.SaveIntermediateFile($"{_options.InputFileName}_symbol_tables.json", SerializeState(_analyzer.ArchivedSymbolTables));
 
         // Step 4 - Optimization
-        // todo
 
         // Step 5 - Code generation
         var il = _generator.GenerateIl(ast);
         _ioService.SaveIntermediateFile($"{_options.InputFileName}.s", il);
+
+        // Step 5b - Include native libs
+        _ioService.CopyNativeLibs(_options.TempFilePath);
 
         // Step 6 - Assembler and linker
         _assembler.Assemble(Path.Combine(_options.TempFilePath, _options.InputFileName.Replace(".s", string.Empty)), _options.OutputPath);
@@ -95,5 +103,5 @@ public class Compiler
     }
 
     private static string SerializeState<T>(T ast) where T : class =>
-        JsonSerializer.Serialize(ast, new JsonSerializerOptions { WriteIndented = true });
+        JsonSerializer.Serialize(ast, SerializationOptions);
 }

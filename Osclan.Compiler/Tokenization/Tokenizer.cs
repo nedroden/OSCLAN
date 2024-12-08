@@ -316,31 +316,31 @@ public class Tokenizer : ITokenizer
                 continue;
             }
 
-            token = _currentChar switch
-            {
-                '+' => new Token(TokenType.Plus),
-                '-' => new Token(TokenType.Minus),
-                '.' => new Token(TokenType.Dot),
-                '(' => new Token(TokenType.Lparen),
-                ')' => new Token(TokenType.Rparen),
-                '[' => new Token(TokenType.Lbracket),
-                ']' => new Token(TokenType.Rbracket),
-                '<' => new Token(TokenType.Lt),
-                '>' => new Token(TokenType.Gt),
-                ':' => new Token(TokenType.Colon),
-                ',' => new Token(TokenType.Comma),
-                '=' => new Token(TokenType.Eq),
-                '*' => new Token(TokenType.Asterisk),
-                '~' => new Token(TokenType.Tilde),
-                _ => throw new SourceException($"Unexpected character at position {_position}: {_currentChar}")
-            };
-
-            tokens.Add(token with { Position = _position });
+            tokens.Add(GetSingleCharacterToken() with { Position = _position });
             Advance();
         }
 
         return tokens;
     }
+
+    private Token GetSingleCharacterToken() => _currentChar switch
+    {
+        '+' => new Token(TokenType.Plus),
+        '-' => new Token(TokenType.Minus),
+        '.' => new Token(TokenType.Dot),
+        '(' => new Token(TokenType.Lparen),
+        ')' => new Token(TokenType.Rparen),
+        '[' => new Token(TokenType.Lbracket),
+        ']' => new Token(TokenType.Rbracket),
+        '<' => new Token(TokenType.Lt),
+        '>' => new Token(TokenType.Gt),
+        ':' => new Token(TokenType.Colon),
+        ',' => new Token(TokenType.Comma),
+        '=' => new Token(TokenType.Eq),
+        '*' => new Token(TokenType.Asterisk),
+        '~' => new Token(TokenType.Tilde),
+        _ => throw new SourceException($"Unexpected character at position {_position}: {_currentChar}")
+    };
 
     private Token? FindSequenceToken()
     {

@@ -19,4 +19,10 @@ public interface IIoService
     /// <param name="filename">The name of the file (e.g., simple.osc_tokens.json).</param>
     /// <param name="content">The contents of the file.</param>
     void SaveIntermediateFile(string filename, string content);
+
+    /// <summary>
+    /// Copies native libraries to the output directory.
+    /// </summary>
+    /// <param name="path">The output path.</param>
+    void CopyNativeLibs(string path);
 }

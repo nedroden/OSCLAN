@@ -35,6 +35,10 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
         _emitter.EmitDirect(".align 2");
         _emitter.EmitNewLine();
 
+        _emitter.EmitDirect(".include \"output/aarch64_native.s\"");
+
+        _emitter.EmitNewLine();
+
         _emitter.EmitDirect("_main:");                              // Entry point
         _emitter.EmitOpcode("bl", $"{Mangler.Mangle("main")}");     // Go to main procedure
         _emitter.EmitOpcode("mov", "x0, xzr");                      // Exit code 0
@@ -45,7 +49,6 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
 
     private void GenerateProcedureIl(AstNode node)
     {
-        // TODO: Remove the line below when I actually start implementing code generation.
         node.Value = Mangler.Mangle(node.Value ?? string.Empty);
 
         // Procedure prolog

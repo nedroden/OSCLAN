@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Osclan.Compiler.Analysis;
 
 namespace Osclan.Compiler.Parsing;
 
@@ -72,5 +73,5 @@ public class AstNode
     /// NOTE: I know this is an ugly solution, but it is a temporary one, until I find a better way to do this.
     /// And if I don't: remember nothing is as permanent as a temporary solution.
     /// </summary>
-    public Dictionary<string, string> Meta { get; set; } = [];
+    public Dictionary<MetaDataKey, string> Meta { get; set; } = [];
 }

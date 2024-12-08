@@ -174,7 +174,6 @@ public class SymbolTable
 
     public Type ResolveField(Type type, string remainingPath)
     {
-        // TODO: Implement dynamic offsets (and hence remove the line below).
         remainingPath = remainingPath.Replace("$", string.Empty);
 
         var parts = remainingPath.Split("::");
