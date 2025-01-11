@@ -1,5 +1,8 @@
+using System;
+
 namespace Osclan.Compiler.Generation.Architecture.Resources.Aarch64;
 
+[Flags]
 public enum MemoryProtocol
 {
     None = 0x00,

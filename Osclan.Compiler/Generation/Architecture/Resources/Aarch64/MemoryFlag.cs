@@ -1,5 +1,8 @@
+using System;
+
 namespace Osclan.Compiler.Generation.Architecture.Resources.Aarch64;
 
+[Flags]
 public enum MemoryFlag
 {
     MapFile = 0x00,

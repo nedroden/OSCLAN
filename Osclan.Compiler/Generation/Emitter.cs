@@ -1,4 +1,5 @@
 using System.Text;
+using Osclan.Compiler.Generation.Architecture.Resources.Aarch64;
 
 namespace Osclan.Compiler.Generation;
 
@@ -43,6 +44,12 @@ public class Emitter
     /// </summary>
     /// <param name="value">The string to emit.</param>
     public void EmitDirect(string value) => _stringBuilder.AppendLine(value);
+    
+    /// <summary>
+    /// Emits a syscall, i.e., moves the numeric value of the syscall to register x16.
+    /// </summary>
+    /// <param name="syscall"></param>
+    public void EmitSyscall(Syscall syscall) => EmitOpcode("mov", $"x16, #{(short)syscall}");
 
     /// <summary>
     /// Gets the result.

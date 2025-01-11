@@ -1,4 +1,5 @@
 using System;
+using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Generation.Architecture.Resources.Aarch64;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
@@ -43,7 +44,7 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
         _emitter.EmitDirect("_main:");                              // Entry point
         _emitter.EmitOpcode("bl", $"{Mangler.Mangle("main")}");     // Go to main procedure
         _emitter.EmitOpcode("mov", "x0, xzr");                      // Exit code 0
-        _emitter.EmitOpcode("mov", $"x16, #{Syscall.Exit}");        // Syscall 1 = exit
+        _emitter.EmitSyscall(Syscall.Exit);
         _emitter.EmitOpcode("svc", "#0x80");                        // macOS supervisor call
         _emitter.EmitNewLine();
     }
@@ -59,11 +60,7 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
 
         foreach (var child in node.Children)
         {
-            switch (child.Type)
-            {
-                default:
-                    continue;
-            }
+            GenerateIlForBlock(child);
         }
 
         // Procedure epilog
@@ -73,14 +70,56 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
         _emitter.EmitNewLine();
     }
 
+    private void GenerateIlForBlock(AstNode child)
+    {
+        switch (child.Type)
+        {
+            case AstNodeType.ProcedureCall:
+                GenerateProcedureCall(child);
+                break;
+            // case AstNodeType.Allocation:
+            //     GenerateMemoryAllocation(node);
+            //     break;
+        }
+
+        if (child.Children.Count <= 0)
+        {
+            return;
+        }
+        
+        foreach (var node in child.Children)
+        {
+            GenerateIlForBlock(node);
+        }
+    }
+
+    private void GenerateProcedureCall(AstNode child)
+    {
+        var mangled = Mangler.Mangle(child.Value ?? throw new CompilerException("Unable to generate procedure call."));
+        
+        _emitter.EmitOpcode("bl", mangled);
+    }
+
     /// <summary>
+    /// Generates code for memory allocation.
+    /// </summary>
+    /// <param name="node"></param>
+    private void GenerateMemoryAllocation(AstNode node) => throw new NotImplementedException();
+
+    /// <summary>
+    /// At the end of a scope, frees any allocated memory.
+    /// </summary>
+    /// <param name="node"></param>
+    private void FreeMemoryAtEndOfScope(AstNode node) => throw new NotImplementedException();
+
+    /// <summary>§
     /// Allocates memory and saves the address of the allocated memory in x0.
     /// </summary>
     /// <param name="size"></param>
     private void AllocateMemory(int size)
     {
-        var protocol = MemoryProtocol.Read | MemoryProtocol.Write;
-        var flags = MemoryFlag.MapAnon;
+        const MemoryProtocol protocol = MemoryProtocol.Read | MemoryProtocol.Write;
+        const MemoryFlag flags = MemoryFlag.MapAnon;
 
         _emitter.EmitOpcode("mov", "x0, xzr");
         _emitter.EmitOpcode("mov", $"x1, #{size}");
@@ -88,15 +127,18 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
         _emitter.EmitOpcode("mov", $"x3, #{flags}");
         _emitter.EmitOpcode("mov", "x4, #-1");
         _emitter.EmitOpcode("mov", "x5, xzr");
-        _emitter.EmitOpcode("mov", $"x16, #{Syscall.Mmap}");
+        _emitter.EmitSyscall(Syscall.Mmap);
         _emitter.EmitOpcode("svc", "#0x80");
     }
 
     /// <summary>
-    /// Frees memory at the address in x0.
+    /// Frees memory at the address in x0. Input:
+    /// x0: The address.
     /// </summary>
-    private void FreeMemory()
+    private void FreeMemory(int size)
     {
-
+        _emitter.EmitOpcode("mov", $"#{size}");
+        _emitter.EmitSyscall(Syscall.Munmap);
+        _emitter.EmitOpcode("svc", "#0x80");
     }
 }

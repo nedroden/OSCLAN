@@ -36,7 +36,8 @@ public class ShellCommand(string command, string arguments)
             CreateNoWindow = true
         };
 
-        using var process = new Process { StartInfo = info };
+        using var process = new Process();
+        process.StartInfo = info;
 
         process.Start();
 

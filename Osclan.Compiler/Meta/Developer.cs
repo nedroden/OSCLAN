@@ -5,7 +5,7 @@ namespace Osclan.Compiler.Meta;
 
 public static class Developer
 {
-    public static JsonSerializerOptions SerializationOptions { get; } = new()
+    private static JsonSerializerOptions SerializationOptions { get; } = new()
     {
         WriteIndented = true
     };
