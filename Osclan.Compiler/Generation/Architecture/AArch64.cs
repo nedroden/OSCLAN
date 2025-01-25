@@ -1,14 +1,23 @@
 using System;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Generation.Architecture.Resources.Aarch64;
+using Osclan.Compiler.Generation.Assembly;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 
 namespace Osclan.Compiler.Generation.Architecture;
 
-public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
+public class AArch64Strategy : IGenerationStrategy
 {
-    private readonly Emitter _emitter = emitter;
+    private readonly Emitter _emitter;
+    private readonly RegisterTable _registerTable = new(31);
+
+    public AArch64Strategy(Emitter emitter)
+    {
+        _emitter = emitter;
+        
+        _registerTable.ReserveRegisters(0, 1, 2, 3, 4, 5, 6, 7, 16, 29, 30);
+    }
 
     public string GenerateIl(AstNode tree)
     {
