@@ -82,14 +82,15 @@ public class Compiler
         _ioService.SaveIntermediateFile($"{_options.InputFileName}_ast_pre_analysis.json", SerializeState(ast));
 
         // Step 3 - Semantic analysis
-        ast = _analyzer.Analyze(ast);
+        var analyzerResult = _analyzer.Analyze(ast);
+        ast = analyzerResult.Root;
         _ioService.SaveIntermediateFile($"{_options.InputFileName}_ast_post_analysis.json", SerializeState(ast));
         _ioService.SaveIntermediateFile($"{_options.InputFileName}_symbol_tables.json", SerializeState(_analyzer.ArchivedSymbolTables));
 
         // Step 4 - Optimization
 
         // Step 5 - Code generation
-        var il = _generator.GenerateIl(ast);
+        var il = _generator.GenerateIl(ast, analyzerResult.SymbolTables);
         _ioService.SaveIntermediateFile($"{_options.InputFileName}.s", il);
 
         // Step 5b - Include native libs

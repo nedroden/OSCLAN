@@ -1,3 +1,5 @@
+using Osclan.Compiler.Generation.Assembly;
+
 namespace Osclan.Compiler.Symbols;
 
 public record Variable : Symbol
@@ -11,4 +13,6 @@ public record Variable : Symbol
     public bool IsPointer { get; set; }
 
     public uint SizeInBytes { get; set; }
+    
+    public Register? Register { get; set; }
 }

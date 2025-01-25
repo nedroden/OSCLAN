@@ -63,4 +63,15 @@ public class RegisterTableTests
         Assert.True(_sut.GetRegisters().First().IsReserved);
         Assert.NotEqual(0, _sut.Allocate().Index);
     }
+
+    [Fact]
+    public void TestProtectedRegisterCanBeAllocatedWithUnsafeMethod()
+    {
+        _sut.ReserveRegisters(0);
+        var register = _sut.UnsafeAllocate(0);
+
+        Assert.NotNull(register);
+        Assert.Equal(0, register.Index);
+        Assert.Equal(RegisterState.InUse, register.State);
+    }
 }

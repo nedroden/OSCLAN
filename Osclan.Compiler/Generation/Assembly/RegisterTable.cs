@@ -39,6 +39,20 @@ public class RegisterTable(int registers)
         return register;
     }
 
+    /// <summary>
+    /// Updates the state of a register without any regard for its current state and protection level.
+    /// </summary>
+    /// <param name="registerId">The id of the register, e.g., '1' for register x1.</param>
+    /// <returns>The register, with its updated state.</returns>
+    public Register UnsafeAllocate(short registerId)
+    {
+        var register = _state.First(r => r.Index == registerId);
+        
+        register.State = RegisterState.InUse;
+
+        return register;
+    }
+
     public void ReserveRegisters(params short[] registers) => 
         _state.Where(r => registers.Contains(r.Index)).ToList().ForEach(register => register.IsReserved = true);
 

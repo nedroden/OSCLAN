@@ -61,7 +61,7 @@ public class AstNode
     /// Used by the analyzer to keep track of the symbol table that the variable/type was resolved in. This
     /// can then be used in the code generation process.
     /// </summary>
-    public Guid? ResolvedIn { get; set; }
+    public Guid? Scope { get; set; }
 
     /// <summary>
     /// The children of the node.

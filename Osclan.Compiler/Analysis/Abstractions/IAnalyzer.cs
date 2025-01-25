@@ -5,9 +5,11 @@ using Osclan.Compiler.Symbols;
 
 namespace Osclan.Compiler.Analysis.Abstractions;
 
+public record AnalyzerResult(AstNode Root, Dictionary<Guid, SymbolTable> SymbolTables);
+
 public interface IAnalyzer
 {
     Dictionary<Guid, SymbolTable> ArchivedSymbolTables { get; }
 
-    AstNode Analyze(AstNode ast);
+    AnalyzerResult Analyze(AstNode ast);
 }

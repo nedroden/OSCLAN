@@ -32,7 +32,7 @@ public class Analyzer : IAnalyzer
     }
 
     /// <summary>
-    /// Checks whether or not an entry point with the signature 'public [uint(4)]::main()' exists.
+    /// Checks whether an entry point with the signature 'public [uint(4)]::main()' exists.
     /// </summary>
     /// <returns>True if a method exists with the proper signature.</returns>
     private static bool ValidEntryPointExists(AstNode ast) => ast.Children.Exists(c =>
@@ -95,6 +95,15 @@ public class Analyzer : IAnalyzer
             IsPointer = type.IsPointer,
             SizeInBytes = valueNode.RawType?.Size > 0 ? valueNode.RawType.Size : type.SizeInBytes
         });
+
+        // Both variable and value refer to the same symbol table (for now)
+        variableNode.Scope = _symbolTable.Guid;
+        valueNode.Scope = _symbolTable.Guid;
+
+        if (valueNode.Type == AstNodeType.Allocation)
+        {
+            valueNode.Meta[MetaDataKey.VariableName] = variableNode.Value; //Mangler.Mangle(variableNode.Value);
+        }
     }
 
     /// <summary>
@@ -213,14 +222,15 @@ public class Analyzer : IAnalyzer
         {
             TypeName = type.Name,
             IsPointer = type.IsPointer,
-            SizeInBytes = type.SizeInBytes
+            SizeInBytes = type.SizeInBytes,
         };
 
         _symbolTable.AddVariable(variable);
+        node.Scope = _symbolTable.Guid;
     }
 
     /// <summary>
-    /// Checks whether not not a referred variable actually exists in the scope hierarchy.
+    /// Checks whether a referred variable actually exists in the scope hierarchy.
     /// </summary>
     /// <param name="node">The variable node.</param>
     /// <exception cref="Exception">Thrown when the variable does not exist in the scope hierarchy.</exception>
@@ -232,31 +242,30 @@ public class Analyzer : IAnalyzer
             return;
         }
 
-        if (_symbolTable.VariableInScope(node.Value))
+        if (!_symbolTable.VariableInScope(node.Value))
         {
-            var variable = _symbolTable.ResolveVariable(node.Value);
-
-            // The variable itself exists. But does the complete path to the field exist?
-            if (!string.IsNullOrWhiteSpace(node.Path))
-            {
-                AnalyzeReferredField(node, variable);
-            }
-
-            // Is this variable being used as a procedure argument?
-            if (node.Meta.TryGetValue(MetaDataKey.RequiredTypeMatch, out string? requiredTypeMatch))
-            {
-                var requiredType = _symbolTable.ResolveTypeByMangledName(requiredTypeMatch);
-
-                if (TypeService.VerifyAssignmentCompatibility(_symbolTable.ResolveTypeByMangledName(variable.TypeName), requiredType, true) != TypeCompatibility.Ok)
-                {
-                    throw new SourceException($"Invalid type for variable '{variable.Name}'. Expected {requiredType.UnmangledName}, got {_symbolTable.ResolveTypeByMangledName(variable.TypeName).UnmangledName}.");
-                }
-            }
-
-            return;
+            throw new SourceException($"Unresolved variable with name '{node.Value}'");
         }
 
-        throw new SourceException($"Unresolved variable with name '{node.Value}'");
+        var variable = _symbolTable.ResolveVariable(node.Value);
+        node.Scope = _symbolTable.Guid;
+
+        // The variable itself exists. But does the complete path to the field exist?
+        if (!string.IsNullOrWhiteSpace(node.Path))
+        {
+            AnalyzeReferredField(node, variable);
+        }
+
+        // Is this variable being used as a procedure argument?
+        if (node.Meta.TryGetValue(MetaDataKey.RequiredTypeMatch, out string? requiredTypeMatch))
+        {
+            var requiredType = _symbolTable.ResolveTypeByMangledName(requiredTypeMatch);
+
+            if (TypeService.VerifyAssignmentCompatibility(_symbolTable.ResolveTypeByMangledName(variable.TypeName), requiredType, true) != TypeCompatibility.Ok)
+            {
+                throw new SourceException($"Invalid type for variable '{variable.Name}'. Expected {requiredType.UnmangledName}, got {_symbolTable.ResolveTypeByMangledName(variable.TypeName).UnmangledName}.");
+            }
+        }
     }
 
     /// <summary>
@@ -330,6 +339,13 @@ public class Analyzer : IAnalyzer
     }
 
     /// <summary>
+    /// Analyzes an allocation. Basically, it checks the type and updates the node.
+    /// </summary>
+    /// <param name="node">The input node.</param>
+    private void AnalyzeAllocation(AstNode node) =>
+        node.TypeInformation = _symbolTable.ResolveType(node.RawType?.Name ?? throw new CompilerException("Type name cannot be empty."));
+
+    /// <summary>
     /// Analyzes a single node. This method is called recursively for each node in the AST.
     /// </summary>
     /// <param name="node">The input node.</param>
@@ -366,22 +382,25 @@ public class Analyzer : IAnalyzer
             case AstNodeType.Scalar:
                 AnalyzeScalar(node);
                 break;
+            case AstNodeType.Allocation:
+                AnalyzeAllocation(node);
+                break;
         }
 
         foreach (var child in node.Children)
         {
-            var createSubscope = child.Type == AstNodeType.Procedure || child.Type == AstNodeType.Structure;
+            var createSubScope = child.Type == AstNodeType.Procedure || child.Type == AstNodeType.Structure;
 
-            // If we have a procedure or a structure, we should create a subscope, but only if they have any children.
-            if (createSubscope && child.Children.Count != 0)
+            // If we have a procedure or a structure, we should create a sub scope, but only if they have any children.
+            if (createSubScope && child.Children.Count != 0)
             {
                 _symbolTable = new SymbolTable(parent: symbolTable);
             }
 
             AnalyzeNode(child, _symbolTable);
 
-            // If we have created a subscope, we should preserve it and pop it from the stack.
-            if (createSubscope)
+            // If we have created a sub scope, we should preserve it and pop it from the stack.
+            if (createSubScope)
             {
                 PopScope();
             }
@@ -394,7 +413,7 @@ public class Analyzer : IAnalyzer
     /// <param name="ast">The root node of the AST.</param>
     /// <returns>A processed version of the AST.</returns>
     /// <exception cref="Exception">Thrown when certain conditions, such as the existence of an entry point, are not met.</exception>
-    public AstNode Analyze(AstNode ast)
+    public AnalyzerResult Analyze(AstNode ast)
     {
         if (!ValidEntryPointExists(ast))
         {
@@ -404,7 +423,7 @@ public class Analyzer : IAnalyzer
         AnalyzeNode(ast, _symbolTable);
         PreserveScope();
 
-        return ast;
+        return new AnalyzerResult(ast, ArchivedSymbolTables);
     }
 
     /// <summary>

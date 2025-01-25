@@ -1,6 +1,9 @@
+using System;
+using System.Collections.Generic;
 using Osclan.Compiler.Generation.Abstractions;
 using Osclan.Compiler.Generation.Architecture;
 using Osclan.Compiler.Parsing;
+using Osclan.Compiler.Symbols;
 
 namespace Osclan.Compiler.Generation;
 
@@ -21,6 +24,7 @@ public class Generator : IGenerator
     /// Generates intermediate language code for the given AST.
     /// </summary>
     /// <param name="tree">The root node of the AST.</param>
+    /// <param name="symbolTables">The symbol tables corresponding to the AST.</param>
     /// <returns>The IL that corresponds to translating the given AST using the given strategy.</returns>
-    public string GenerateIl(AstNode tree) => _strategy.GenerateIl(tree);
+    public string GenerateIl(AstNode tree, Dictionary<Guid, SymbolTable> symbolTables) => _strategy.GenerateIl(tree, symbolTables);
 }
