@@ -20,6 +20,7 @@ public static class TypeService
     /// </summary>
     /// <param name="from">The source data.</param>
     /// <param name="to">The destination data (= variable).</param>
+    /// <param name="strict">Whether or not the types must match exactly (type name + size).</param>
     /// <returns></returns>
     public static TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to, bool strict)
     {
@@ -95,6 +96,7 @@ public static class TypeService
                 : compositeChildType.SizeInBytes;
 
             type.Fields.Add(Mangler.Mangle(name), compositeChildType);
+            type.SizeInBytes += compositeChildType.SizeInBytes;
         }
 
         return type;

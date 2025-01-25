@@ -77,6 +77,11 @@ public class Analyzer : IAnalyzer
 
         var type = _symbolTable.ResolveType(variableNode.RawType?.Name ?? string.Empty);
 
+        if (type.SizeInBytes == 8)
+        {
+            Console.WriteLine($"Type = {type.UnmangledName} with Size = {type.SizeInBytes} bytes");
+        }
+
         var variableType = TypeService.GetType(_symbolTable, variableNode);
         var assignmentStatus = TypeService.VerifyAssignmentCompatibility(variableType, type);
 
