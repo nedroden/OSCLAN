@@ -11,7 +11,7 @@ public static class TypeService
     /// </summary>
     /// <param name="from">The source data.</param>
     /// <param name="to">The destination data (= variable).</param>
-    /// <returns></returns>
+    /// <returns>Whether the type conversion is valid (and possibly leads to a loss of information).</returns>
     public static TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to) =>
         VerifyAssignmentCompatibility(from, to, false);
 
@@ -21,7 +21,7 @@ public static class TypeService
     /// <param name="from">The source data.</param>
     /// <param name="to">The destination data (= variable).</param>
     /// <param name="strict">Whether or not the types must match exactly (type name + size).</param>
-    /// <returns></returns>
+    /// <returns>Whether the type conversion is valid (and possibly leads to a loss of information).</returns>
     public static TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to, bool strict)
     {
         if (strict)
@@ -36,12 +36,7 @@ public static class TypeService
             return TypeCompatibility.Illegal;
         }
 
-        if (from.SizeInBytes > to.SizeInBytes)
-        {
-            return TypeCompatibility.LossOfInformation;
-        }
-
-        return TypeCompatibility.Ok;
+        return from.SizeInBytes > to.SizeInBytes ? TypeCompatibility.LossOfInformation : TypeCompatibility.Ok;
     }
 
     /// <summary>
@@ -102,10 +97,27 @@ public static class TypeService
         return type;
     }
 
+    /// <summary>
+    /// Recursively computes the starting address offsets of each field within the specified type. The
+    /// addresses are automatically updated in the types.
+    ///
+    /// For example, consider a composite field 'name' with subfields 'first-name' and 'last-name'. If both
+    /// fields comprise ten bytes, then it follows that the starting addresses are:
+    ///
+    /// - name: offset = 0
+    ///     - first-name: offset = 0
+    ///     - last-name: offset = 10
+    ///
+    /// This is since 'name' and 'first-name' start at the same position, and 'first-name' is ten bytes long.
+    /// Hence, 'last-name' starts at an offset of 10 bytes.
+    ///
+    /// For more detailed examples, see the corresponding tests.
+    /// </summary>
+    /// <param name="type">The type to index.</param>
     public static void IndexType(Type type)
     {
-        uint offset = 0;
         type.AddressOffset = 0;
+        uint offset = 0;
 
         foreach (var field in type.Fields)
         {
@@ -113,7 +125,7 @@ public static class TypeService
         }
     }
 
-    public static uint IndexType(Type type, uint totalOffset)
+    private static uint IndexType(Type type, uint totalOffset)
     {
         type.AddressOffset = totalOffset;
 
@@ -127,6 +139,8 @@ public static class TypeService
                 totalOffset = IndexType(field, totalOffset);
             }
         }
+        
+        totalOffset += type.SizeInBytes;
 
         return totalOffset;
     }
