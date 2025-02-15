@@ -38,5 +38,6 @@ public enum TokenType
     Asterisk,
     Tilde,
     Call,
-    Init
+    Init,
+    Free
 }

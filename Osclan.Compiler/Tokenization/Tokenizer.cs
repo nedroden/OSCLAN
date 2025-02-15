@@ -39,7 +39,8 @@ public class Tokenizer : ITokenizer
         { "ret", new Token(TokenType.Ret) },
         { "if", new Token(TokenType.If) },
         { "else", new Token(TokenType.Else) },
-        { "then", new Token(TokenType.Then) }
+        { "then", new Token(TokenType.Then) },
+        { "free", new Token(TokenType.Free) }
     };
 
     private readonly string _source; private readonly uint _sourceLength;

@@ -7,6 +7,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Osclan.Compiler", "Osclan.C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Osclan.Compiler.Test", "Osclan.Compiler.Test\Osclan.Compiler.Test.csproj", "{CB5E56E5-06B6-44CD-B235-DFCB9E1695D4}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution items", "Solution items", "{3514BF0D-A53F-42E5-9EBE-8156BA384B61}"
+	ProjectSection(SolutionItems) = preProject
+		Examples\simple.osc = Examples\simple.osc
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

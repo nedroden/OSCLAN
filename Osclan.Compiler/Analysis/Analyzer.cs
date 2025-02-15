@@ -107,7 +107,7 @@ public class Analyzer : IAnalyzer
 
         if (valueNode.Type == AstNodeType.Allocation)
         {
-            valueNode.Meta[MetaDataKey.VariableName] = variableNode.Value; //Mangler.Mangle(variableNode.Value);
+            valueNode.Meta[MetaDataKey.VariableName] = variableNode.Value;
         }
     }
 
@@ -394,7 +394,7 @@ public class Analyzer : IAnalyzer
 
         foreach (var child in node.Children)
         {
-            var createSubScope = child.Type == AstNodeType.Procedure || child.Type == AstNodeType.Structure;
+            var createSubScope = child.Type is AstNodeType.Procedure or AstNodeType.Structure;
 
             // If we have a procedure or a structure, we should create a sub scope, but only if they have any children.
             if (createSubScope && child.Children.Count != 0)

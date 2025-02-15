@@ -27,7 +27,7 @@ public class RegisterTable(int registers)
 
     public Register Allocate()
     {
-        var register = _state.ToList().FirstOrDefault(r => r is { State: RegisterState.Free, IsReserved: false });
+        var register = _state.FirstOrDefault(r => r is { State: RegisterState.Free, IsReserved: false });
 
         if (register is null)
         {

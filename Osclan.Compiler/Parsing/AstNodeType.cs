@@ -15,6 +15,7 @@ public enum AstNodeType
     Declaration,
     Variable,
     Allocation,
+    Deallocation,
     Scalar,
     String,
     DynOffset,

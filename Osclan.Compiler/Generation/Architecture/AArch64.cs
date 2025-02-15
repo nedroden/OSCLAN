@@ -5,6 +5,7 @@ using Osclan.Compiler.Analysis;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Generation.Architecture.Resources.Aarch64;
 using Osclan.Compiler.Generation.Assembly;
+using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 
@@ -107,7 +108,31 @@ public class AArch64Strategy : IGenerationStrategy
                 case AstNodeType.Allocation:
                     GenerateMemoryAllocation(child);
                     break;
+                case AstNodeType.Deallocation:
+                    GenerateVariableDeallocation(child);
+                    break;
             }
+        }
+
+        private void GenerateVariableDeallocation(AstNode node)
+        {
+            var variableToDeallocate = node.Children.Single();
+            
+            var symbolTableGuid = variableToDeallocate.Scope ?? throw new CompilerException("Variable missing symbol table reference.");
+            var currentScope = _symbolTables.Single(s => s.Key == symbolTableGuid).Value;
+            var variable = currentScope.ResolveVariable(variableToDeallocate.Value ?? throw new CompilerException("Variable has no name."));
+
+            if (variable.Register is null)
+            {
+                throw new SourceException($"Variable with identifier '{variable.UnmangledName}' is not currently allocated.");
+            }
+
+            if (variable.IsPointer)
+            {
+                FreeMemory(variable.SizeInBytes, variable.Register);
+            }
+            
+            _registerTable.Free(variable.Register.Index);
         }
 
         private void GenerateProcedureCall(AstNode child)

@@ -2,7 +2,7 @@ using Osclan.Compiler.Symbols;
 
 namespace Osclan.Compiler.Test.Symbols;
 
-public class TypeServiceTests
+public abstract class TypeServiceTests
 {
     public class SizeComputationTests
     {
@@ -10,8 +10,10 @@ public class TypeServiceTests
         public void Type_Offset_Is_Computed_For_Elementary_Type()
         {
             // Arrange
-            var type = new Type("string");
-            type.SizeInBytes = 8;
+            var type = new Type("string")
+            {
+                SizeInBytes = 8
+            };
 
             // Act
             TypeService.IndexType(type);

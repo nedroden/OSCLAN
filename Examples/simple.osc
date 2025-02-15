@@ -60,5 +60,8 @@ declare public [uint(4)]::main()
     .*    ret -1
     .*end
 
+    declare [List]freeable-list : init [List]
+    free freeable-list
+
     ret ok
 end

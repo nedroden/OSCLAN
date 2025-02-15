@@ -237,6 +237,9 @@ public class Parser : IParser
                 case TokenType.Print:
                     statements.Add(ParsePrintStatement());
                     break;
+                case TokenType.Free:
+                    statements.Add(ParseFreeStatement());
+                    break;
                 case TokenType.Identifier:
                     statements.Add(ParseAssignment(isDeclaration: false, isAnon: false, skipLeftOperand: false));
                     break;
@@ -249,6 +252,24 @@ public class Parser : IParser
         }
 
         return statements;
+    }
+
+    private AstNode ParseFreeStatement()
+    {
+        Consume(TokenType.Free);
+        
+        var identifier = Consume(TokenType.Identifier);
+        var childNode = new AstNode
+        {
+            Type = AstNodeType.Variable,
+            Value = identifier.Value
+        };
+
+        return new AstNode
+        {
+            Type = AstNodeType.Deallocation,
+            Children = [ childNode ]
+        };
     }
 
     private AstNode ParseReturnStatement()
