@@ -1,5 +1,6 @@
 using System.Linq;
 using Osclan.Compiler.Exceptions;
+using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 
 namespace Osclan.Compiler.Symbols;
@@ -24,6 +25,11 @@ public static class TypeService
     /// <returns>Whether the type conversion is valid (and possibly leads to a loss of information).</returns>
     public static TypeCompatibility VerifyAssignmentCompatibility(Type from, Type to, bool strict)
     {
+        if (from.IsPointer != to.IsPointer)
+        {
+            return TypeCompatibility.Illegal;
+        }
+        
         if (strict)
         {
             return from.Name == to.Name && from.SizeInBytes == to.SizeInBytes
@@ -65,6 +71,8 @@ public static class TypeService
             type.Name = node.Value ?? string.Empty;
         }
 
+        type.IsPointer = node.RawType?.IsPointer ?? false;
+
         foreach (var child in node.Children)
         {
             var name = child.Value ?? throw new CompilerException("Child name cannot be empty");
@@ -75,6 +83,7 @@ public static class TypeService
                 var childType = child.RawType?.Name ?? throw new CompilerException("Type name cannot be empty.");
                 var elementaryType = symbolTable.ResolveType(childType);
                 elementaryType.SizeInBytes = child.RawType.Size;
+                elementaryType.IsPointer = child.RawType?.IsPointer ?? false;
 
                 type.Fields.Add(Mangler.Mangle(name), elementaryType);
                 type.SizeInBytes += child.RawType?.Size ?? elementaryType.SizeInBytes;

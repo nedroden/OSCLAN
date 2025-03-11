@@ -18,8 +18,8 @@ declare public struct List
 end
 
 .* This procedure returns a new List with a single item
-declare public [List]::init-list()
-    declare [List]list : init [List]
+declare public [List*]::init-list()
+    declare [List*]list : init [List]
     declare [int(8)]localSize : 1
 
     declare [string]first-name : "John"
@@ -45,8 +45,8 @@ end
 declare public [uint(4)]::main()
     print "OSCLAN example"
 
-    declare [List]list : call init-list()
-    call add-child-to-list(*list, "Jane", "Doe")
+    declare [List*]list : call init-list()
+    call add-child-to-list(list, "Jane", "Doe")
 
     .*if list::size ~= 1 then
     .*    print "Something went wrong."
@@ -60,7 +60,7 @@ declare public [uint(4)]::main()
     .*    ret -1
     .*end
 
-    declare [List]freeable-list : init [List]
+    declare [List*]freeable-list : init [List]
     free freeable-list
 
     ret ok

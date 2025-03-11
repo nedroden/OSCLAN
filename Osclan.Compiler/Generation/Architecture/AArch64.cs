@@ -127,12 +127,12 @@ public class AArch64Strategy : IGenerationStrategy
                 throw new SourceException($"Variable with identifier '{variable.UnmangledName}' is not currently allocated.");
             }
 
-            if (variable.IsPointer)
+            if (!variable.IsPointer)
             {
-                FreeMemory(variable.SizeInBytes, variable.Register);
+                throw new SourceException($"Invalid free operation: non-pointer '{variable.UnmangledName}' cannot be used as an operand.");
             }
             
-            _registerTable.Free(variable.Register.Index);
+            FreeMemory(variable.SizeInBytes, variable.Register);
         }
 
         private void GenerateProcedureCall(AstNode child)

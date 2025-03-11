@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Osclan.Compiler.Analysis.Abstractions;
 using Osclan.Compiler.Exceptions;
+using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 
@@ -58,7 +59,7 @@ public class Analyzer : IAnalyzer
         TypeService.IndexType(structType);
 
         // If possible, add the type to the parent symbol table so that it is usable by variables in the same scope.
-        (_symbolTable.Parent ?? _symbolTable).AddType(structType);
+        (_symbolTable.Parent ?? _symbolTable).AddType(structType with { IsPointer = true });
     }
 
     /// <summary>
@@ -88,6 +89,8 @@ public class Analyzer : IAnalyzer
         switch (assignmentStatus)
         {
             case TypeCompatibility.Illegal:
+                Developer.DumpObject(variableType);
+                Developer.DumpObject(type);
                 throw new SourceException($"Invalid assignment of value to variable '{variableNode.Value}'.");
             case TypeCompatibility.LossOfInformation:
                 Console.WriteLine($"Warning: possible loss of information for variable '{variableNode.Value}'.");
@@ -332,7 +335,7 @@ public class Analyzer : IAnalyzer
         node.TypeInformation = _symbolTable.ResolveType("int");
 
         // Scalar is used as procedure argument.
-        if (node.Meta.TryGetValue(MetaDataKey.RequiredTypeMatch, out string? requiredTypeMatch))
+        if (node.Meta.TryGetValue(MetaDataKey.RequiredTypeMatch, out var requiredTypeMatch))
         {
             var requiredType = _symbolTable.ResolveTypeByMangledName(requiredTypeMatch);
 
@@ -344,11 +347,13 @@ public class Analyzer : IAnalyzer
     }
 
     /// <summary>
-    /// Analyzes an allocation. Basically, it checks the type and updates the node.
+    /// Analyzes an allocation. Basically, it checks the type and updates the node. Since allocations are.
     /// </summary>
     /// <param name="node">The input node.</param>
     private void AnalyzeAllocation(AstNode node) =>
-        node.TypeInformation = _symbolTable.ResolveType(node.RawType?.Name ?? throw new CompilerException("Type name cannot be empty."));
+        node.TypeInformation =
+            _symbolTable.ResolveType(node.RawType?.Name ?? throw new CompilerException("Type name cannot be empty."))
+                with { IsPointer = true };
 
     /// <summary>
     /// Analyzes a single node. This method is called recursively for each node in the AST.
