@@ -5,7 +5,6 @@ using System.Text.Json;
 using Osclan.Compiler.Analysis;
 using Osclan.Compiler.Analysis.Abstractions;
 using Osclan.Compiler.Assembler.Abstractions;
-using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Generation;
 using Osclan.Compiler.Generation.Abstractions;
 using Osclan.Compiler.Generation.Architecture;

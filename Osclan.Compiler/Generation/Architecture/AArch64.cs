@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Osclan.Compiler.Analysis;
 using Osclan.Compiler.Exceptions;
+using Osclan.Compiler.Extensions;
 using Osclan.Compiler.Generation.Architecture.Resources.Aarch64;
 using Osclan.Compiler.Generation.Assembly;
 using Osclan.Compiler.Meta;
@@ -46,6 +48,8 @@ public class AArch64Strategy : IGenerationStrategy
                     case AstNodeType.Procedure:
                         GenerateProcedureIl(node);
                         break;
+                    case AstNodeType.Directive: break;
+                    case AstNodeType.Structure: break;
                     default:
                         Console.WriteLine($"Generation for {node.TypeString} is not yet implemented.");
                         break;
@@ -57,13 +61,14 @@ public class AArch64Strategy : IGenerationStrategy
         {
             _emitter.EmitDirect($"; AArch64 code generated at {DateTime.UtcNow}");
             _emitter.EmitDirect(".global _main");
-            _emitter.EmitDirect(".align 2");
+            _emitter.EmitDirect(".align 8");
             _emitter.EmitNewLine();
 
             _emitter.EmitDirect(".include \"output/aarch64_native.s\"");
 
             _emitter.EmitNewLine();
 
+            _emitter.EmitDirect("; Program entry point");
             _emitter.EmitDirect("_main:"); // Entry point
             _emitter.EmitOpcode("bl", $"{Mangler.Mangle("main")}"); // Go to main procedure
             _emitter.EmitOpcode("mov", "x0, xzr"); // Exit code 0
@@ -77,9 +82,11 @@ public class AArch64Strategy : IGenerationStrategy
             node.Value = Mangler.Mangle(node.Value ?? string.Empty);
 
             // Procedure prolog
+            _emitter.EmitDirect("; Procedure prolog");
             _emitter.EmitDirect($"{node.Value}:");
             _emitter.EmitOpcode("stp", "lr, fp, [sp, #-16]!"); // Save LR and FP on the stack
             _emitter.EmitOpcode("mov", "fp, sp"); // Set frame pointer
+            _emitter.EmitComment("Procedure implementation block");
 
             foreach (var child in node.Children)
             {
@@ -87,6 +94,7 @@ public class AArch64Strategy : IGenerationStrategy
             }
 
             // Procedure epilog
+            _emitter.EmitComment("Procedure epilog");
             _emitter.EmitOpcode("mov", "sp, fp"); // Restore stack pointer
             _emitter.EmitOpcode("ldp", "lr, fp, [sp], #16"); // Restore FP and LR
             _emitter.EmitOpcode("ret"); // Return to caller
@@ -111,7 +119,60 @@ public class AArch64Strategy : IGenerationStrategy
                 case AstNodeType.Deallocation:
                     GenerateVariableDeallocation(child);
                     break;
+                case AstNodeType.Print:
+                    GeneratePrintStatement(child);
+                    break;
             }
+        }
+
+        /// <summary>
+        /// Generates code for the print statement. Syscall 4 is used to write the contents to the screen.
+        ///
+        /// TODO: unicode support.
+        /// </summary>
+        /// <param name="child"></param>
+        /// <exception cref="NotImplementedException"></exception>
+        private void GeneratePrintStatement(AstNode child)
+        {
+            var childNode = child.Children.Single();
+            if (childNode is not { Type: AstNodeType.Assignment })
+            {
+                throw new CompilerException("Unable to interpret print statement.");
+            }
+
+            var operand = childNode.Children.Single();
+            if (operand is not { Type: AstNodeType.String, Value: not null })
+            {
+                throw new NotImplementedException();
+            }
+
+            var operandValue = $"{operand.Value}\n\0";
+            var operandLength = operandValue.Length;
+            
+            // Store string in memory
+            var operandRegister = AllocateMemory((uint)operandLength);
+            _emitter.EmitComment("Store print statement operand in memory");
+
+            var scratchRegister = _registerTable.Allocate();
+            for (var i = 0; i < operandLength; i += 2)
+            {
+                var byteRepr = Encoding.ASCII.GetBytes(operandValue.Window(2, i)).ToHex().PadWithZeros(4);
+
+                _emitter.EmitOpcode("mov", $"{scratchRegister.Name}, {byteRepr}");
+                _emitter.EmitOpcode("str", $"{scratchRegister.Name}, [{operandRegister.Name}, #{i}]");
+            }
+
+            // Perform syscall
+            _emitter.EmitComment("Perform system call 4 (write)");
+            _emitter.EmitOpcode("mov", $"x0, #{(int)FileDescriptor.Stdout}");
+            _emitter.EmitOpcode("mov", $"x1, {operandRegister.Name}");
+            _emitter.EmitOpcode("mov", $"x2, #{operandLength}");
+            _emitter.EmitSyscall(Syscall.Write);
+            _emitter.EmitOpcode("svc", "#0x80");
+            
+            // Free registers and deallocate memory
+            _registerTable.Free(scratchRegister);
+            FreeMemory((uint)operandLength, operandRegister);
         }
 
         private void GenerateVariableDeallocation(AstNode node)
@@ -139,6 +200,7 @@ public class AArch64Strategy : IGenerationStrategy
         {
             var mangled = Mangler.Mangle(child.Value ?? throw new CompilerException("Unable to generate procedure call."));
 
+            _emitter.EmitComment("Procedure call");
             _emitter.EmitOpcode("bl", mangled);
         }
 
@@ -174,10 +236,11 @@ public class AArch64Strategy : IGenerationStrategy
         private Register AllocateMemory(uint size)
         {
             const MemoryProtocol protocol = MemoryProtocol.Read | MemoryProtocol.Write;
-            const MemoryFlag flags = MemoryFlag.MapAnon;
+            const MemoryFlag flags = MemoryFlag.MapAnon | MemoryFlag.MapPrivate;
 
             var register = _registerTable.Allocate();
 
+            _emitter.EmitComment("Memory allocation");
             _emitter.EmitOpcode("mov", "x0, xzr");
             _emitter.EmitOpcode("mov", $"x1, #{size}");
             _emitter.EmitOpcode("mov", $"x2, #{(int)protocol}");
@@ -194,6 +257,7 @@ public class AArch64Strategy : IGenerationStrategy
 
         private void FreeMemory(uint size, Register register)
         {
+            _emitter.EmitComment("Memory deallocation");
             _emitter.EmitOpcode("mov", $"x0, {_registerTable.GetName(register)}");
             _emitter.EmitOpcode("mov", $"x1, #{size}");
             _emitter.EmitSyscall(Syscall.Munmap);

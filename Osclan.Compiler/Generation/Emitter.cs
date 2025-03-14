@@ -26,7 +26,7 @@ public class Emitter
     /// </summary>
     /// <param name="opcode">The opcode, e.g., "mov".</param>
     /// <param name="args">The arguments, e.g., "x1, xzr"</param>
-    public void EmitOpcode(string opcode, string args) => _stringBuilder.AppendLine($"\t{opcode}\t\t{args}");
+    public void EmitOpcode(string opcode, string args) => _stringBuilder.AppendLine($"\t{opcode.PadRight(5, ' ')} {args}");
 
     /// <summary>
     /// Emits an opcode without arguments.
@@ -44,6 +44,12 @@ public class Emitter
     /// </summary>
     /// <param name="value">The string to emit.</param>
     public void EmitDirect(string value) => _stringBuilder.AppendLine(value);
+
+    /// <summary>
+    /// Emits a comment.
+    /// </summary>
+    /// <param name="value">The value of the comment.</param>
+    public void EmitComment(string value) => _stringBuilder.AppendLine($"\n\t; {value}");
     
     /// <summary>
     /// Emits a syscall, i.e., moves the numeric value of the syscall to register x16.

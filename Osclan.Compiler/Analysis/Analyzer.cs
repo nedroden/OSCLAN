@@ -38,7 +38,7 @@ public class Analyzer : IAnalyzer
     /// <returns>True if a method exists with the proper signature.</returns>
     private static bool ValidEntryPointExists(AstNode ast) => ast.Children.Exists(c =>
         c.Type == AstNodeType.Procedure
-        && Mangler.Mangle(c.RawType?.Name ?? string.Empty) == Mangler.Mangle("uint")
+        && Mangler.Mangle(c.RawType?.Name ?? string.Empty) == Mangler.Mangle(BuiltInType.Uint)
         && c.RawType?.Size == 4
         && c.Modifiers.Contains(Modifier.Public));
 
@@ -316,7 +316,7 @@ public class Analyzer : IAnalyzer
 
     private void AnalyzeString(AstNode node)
     {
-        node.TypeInformation = _symbolTable.ResolveType("string");
+        node.TypeInformation = _symbolTable.ResolveType(BuiltInType.String);
 
         // String is used as procedure argument.
         if (node.Meta.TryGetValue(MetaDataKey.RequiredTypeMatch, out string? requiredTypeMatch))
@@ -332,7 +332,7 @@ public class Analyzer : IAnalyzer
 
     private void AnalyzeScalar(AstNode node)
     {
-        node.TypeInformation = _symbolTable.ResolveType("int");
+        node.TypeInformation = _symbolTable.ResolveType(BuiltInType.Int);
 
         // Scalar is used as procedure argument.
         if (node.Meta.TryGetValue(MetaDataKey.RequiredTypeMatch, out var requiredTypeMatch))

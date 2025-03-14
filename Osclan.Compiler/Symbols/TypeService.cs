@@ -37,7 +37,9 @@ public static class TypeService
                 : TypeCompatibility.Illegal;
         }
 
-        if (from.Name == Mangler.Mangle("string") && (to.Name == Mangler.Mangle("int") || to.Name == Mangler.Mangle("uint")))
+        if (from.Name == Mangler.Mangle(BuiltInType.String)
+            && (to.Name == Mangler.Mangle(BuiltInType.Int) 
+                || to.Name == Mangler.Mangle(BuiltInType.Uint)))
         {
             return TypeCompatibility.Illegal;
         }

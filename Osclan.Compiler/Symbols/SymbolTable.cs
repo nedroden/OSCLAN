@@ -219,9 +219,9 @@ public class SymbolTable
     public void AddBuiltInTypes() =>
         Types.AddRange(
         [
-            new Type(Mangler.Mangle("int")) { UnmangledName = "int", SizeInBytes = 4 },
-            new Type(Mangler.Mangle("uint")) { UnmangledName = "uint", SizeInBytes = 4 },
-            new Type(Mangler.Mangle("string")) { UnmangledName = "string", SizeInBytes = 4, IsPointer = true }
+            new Type(Mangler.Mangle(BuiltInType.Int)) { UnmangledName = BuiltInType.Int, SizeInBytes = 4 },
+            new Type(Mangler.Mangle(BuiltInType.Uint)) { UnmangledName = BuiltInType.Uint, SizeInBytes = 4 },
+            new Type(Mangler.Mangle(BuiltInType.String)) { UnmangledName = BuiltInType.String, SizeInBytes = 4, IsPointer = true }
         ]);
 
     /// <summary>

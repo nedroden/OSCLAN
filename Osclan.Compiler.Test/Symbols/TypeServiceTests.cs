@@ -10,7 +10,7 @@ public abstract class TypeServiceTests
         public void Type_Offset_Is_Computed_For_Elementary_Type()
         {
             // Arrange
-            var type = new Type("string")
+            var type = new Type(BuiltInType.String)
             {
                 SizeInBytes = 8
             };

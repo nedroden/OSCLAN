@@ -10,6 +10,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution items", "Solution items", "{3514BF0D-A53F-42E5-9EBE-8156BA384B61}"
 	ProjectSection(SolutionItems) = preProject
 		Examples\simple.osc = Examples\simple.osc
+		README.md = README.md
+		Examples\hello-world.osc = Examples\hello-world.osc
 	EndProjectSection
 EndProject
 Global

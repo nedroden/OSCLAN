@@ -33,27 +33,28 @@ A struct can be turned into an array by appending `(n)`, where `n` denotes the n
 
 The language has the following (case-insensitive) keywords:
 
-| **Keyword** | **Description**                                                                                |
-| ----------- | ---------------------------------------------------------------------------------------------- |
-| declare     | Used for declaring variables, structures procedures.                                           |
-| public      | Modifier used to make a procedure/struct visible outside the current file.                     |
-| private     | Modifier used to make a procedure/struct invisible outside the current file.                   |
-| struct      | Denotes a data structure.                                                                      |
-| begin       | Start of a block.                                                                              |
-| end         | End of a block.                                                                                |
-| init        | Initializes a struct/type, e.g., `init string(10)` to initialize a string of 10 characters.    |
-| anon        | Used in combination with `declare`, used when initializing an implicit struct.                 |
-| ret         | Returns from the procedure.                                                                    |
-| print       | Prints the arguments to stdout.                                                                |
-| if          | Denotes a block of code that is only executed when the expression holds true.                  |
-| else        | Denotes a block of code that is only executed if the preceding `if` statement is not executed. |
-| then        | Start of the block of code that is executed in an `if-else` construction.                      |
-| space       | Shorthand that denotes an arbitrary number of spaces.                                          |
-| zero        | Shorthand that denotes an arbitrary number of zeros.                                           |
-| ok          | Alias of `zero`, only used in combination with `ret`.                                          |
-| for         | While-loop.                                                                                    |
-| increment   | Increments a scalar value by 1                                                                 |
-| decrement   | Decrements a scalar value by 1                                                                 |
+| **Keyword** | **Description**                                                                                                          |
+|-------------|--------------------------------------------------------------------------------------------------------------------------|
+| declare     | Used for declaring variables, structures procedures.                                                                     |
+| public      | Modifier used to make a procedure/struct visible outside the current file.                                               |
+| private     | Modifier used to make a procedure/struct invisible outside the current file.                                             |
+| struct      | Denotes a data structure.                                                                                                |
+| begin       | Start of a block.                                                                                                        |
+| end         | End of a block.                                                                                                          |
+| init        | Initializes a struct/type, e.g., `init string(10)` to initialize a string of 10 characters. Always results in a pointer. |
+| free        | Frees a previously-allocated block of memory.                                                                            |                                                  |
+| anon        | Used in combination with `declare`, used when initializing an implicit struct.                                           |
+| ret         | Returns from the procedure.                                                                                              |
+| print       | Prints the arguments to stdout.                                                                                          |
+| if          | Denotes a block of code that is only executed when the expression holds true.                                            |
+| else        | Denotes a block of code that is only executed if the preceding `if` statement is not executed.                           |
+| then        | Start of the block of code that is executed in an `if-else` construction.                                                |
+| space       | Shorthand that denotes an arbitrary number of spaces.                                                                    |
+| zero        | Shorthand that denotes an arbitrary number of zeros.                                                                     |
+| ok          | Alias of `zero`, only used in combination with `ret`.                                                                    |
+| for         | While-loop.                                                                                                              |
+| increment   | Increments a scalar value by 1                                                                                           |
+| decrement   | Decrements a scalar value by 1                                                                                           |
 
 ### Directives
 | **Directive** | **Possible values** | **Description** |

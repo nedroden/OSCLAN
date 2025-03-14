@@ -10,6 +10,8 @@ public class Register(short index, RegisterState state)
     public RegisterState State { get; set; } = state;
     
     public bool IsReserved { get; set; }
+
+    public string Name => $"x{Index}";
 }
 
 public enum RegisterState
@@ -21,6 +23,9 @@ public enum RegisterState
 public class RegisterTable(int registers)
 {
     private readonly Register[] _state = Enumerable.Range(0, registers).Select(i => new Register((short)i, RegisterState.Free)).ToArray();
+
+    public void Free(Register register) =>
+        _state[register.Index].State = RegisterState.Free;
     
     public void Free(short registerName) =>
         _state.Single(r => r.Index == registerName).State = RegisterState.Free;

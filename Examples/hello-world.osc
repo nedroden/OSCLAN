@@ -1,0 +1,8 @@
+.module "main"
+.mangler "enable"
+
+declare public [uint(4)]::main()
+    print "Hello world!"
+    
+    ret ok
+end

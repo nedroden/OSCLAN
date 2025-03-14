@@ -11,7 +11,7 @@ public class SymbolTableTests
     {
         var variable = new Variable("someVariable")
         {
-            TypeName = "string"
+            TypeName = BuiltInType.String
         };
 
         _sut.AddVariable(variable);
@@ -21,7 +21,7 @@ public class SymbolTableTests
         var symbol = _sut.Variables[0];
         Assert.Equal(Mangler.Mangle("someVariable"), symbol.Name);
         Assert.Equal("someVariable", symbol.UnmangledName);
-        Assert.Equal("string", symbol.TypeName);
+        Assert.Equal(BuiltInType.String, symbol.TypeName);
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public class SymbolTableTests
     {
         _sut.AddVariable(new Variable("someVariable")
         {
-            TypeName = "string"
+            TypeName = BuiltInType.String
         });
 
         Assert.True(_sut.VariableInCurrentScope("someVariable"));
@@ -38,7 +38,7 @@ public class SymbolTableTests
     [Fact]
     public void Test_Type_Is_Declared()
     {
-        _sut.AddType(new Osclan.Compiler.Symbols.Type("SomeType")
+        _sut.AddType(new Type("SomeType")
         {
             SizeInBytes = 0
         });
@@ -53,7 +53,7 @@ public class SymbolTableTests
     [Fact]
     public void Test_Type_Is_Resolved_In_Current_Scope()
     {
-        _sut.AddType(new Osclan.Compiler.Symbols.Type("SomeType")
+        _sut.AddType(new Type("SomeType")
         {
             SizeInBytes = 0
         });
