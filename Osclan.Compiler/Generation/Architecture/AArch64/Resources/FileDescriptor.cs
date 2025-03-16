@@ -1,4 +1,4 @@
-namespace Osclan.Compiler.Generation.Architecture.Resources.Aarch64;
+namespace Osclan.Compiler.Generation.Architecture.AArch64.Resources;
 
 public enum FileDescriptor
 {

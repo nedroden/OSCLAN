@@ -7,7 +7,7 @@ using Osclan.Compiler.Analysis.Abstractions;
 using Osclan.Compiler.Assembler.Abstractions;
 using Osclan.Compiler.Generation;
 using Osclan.Compiler.Generation.Abstractions;
-using Osclan.Compiler.Generation.Architecture;
+using Osclan.Compiler.Generation.Architecture.AArch64;
 using Osclan.Compiler.Io;
 using Osclan.Compiler.Io.Abstractions;
 using Osclan.Compiler.Parsing;

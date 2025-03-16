@@ -88,7 +88,7 @@ public class Parser : IParser
             Value = identifier.Value ?? throw new CompilerException("Directive name must have a value.")
         };
 
-        switch (directive.Value)
+        switch (directive.Value?.ToLower())
         {
             case "import":
             case "module":
@@ -257,7 +257,7 @@ public class Parser : IParser
     private AstNode ParseFreeStatement()
     {
         Consume(TokenType.Free);
-        
+
         var identifier = Consume(TokenType.Identifier);
         var childNode = new AstNode
         {
@@ -268,7 +268,7 @@ public class Parser : IParser
         return new AstNode
         {
             Type = AstNodeType.Deallocation,
-            Children = [ childNode ]
+            Children = [childNode]
         };
     }
 

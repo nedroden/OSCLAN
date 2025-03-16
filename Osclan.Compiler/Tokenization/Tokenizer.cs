@@ -34,6 +34,7 @@ public class Tokenizer : ITokenizer
         { "begin", new Token(TokenType.Begin) },
         { "init", new Token(TokenType.Init) },
         { "ok", new Token(TokenType.Number, "0") },
+        { "failed", new Token(TokenType.Number, "255") },
         { "true", new Token(TokenType.Number, "1") },
         { "false", new Token(TokenType.Number, "0") },
         { "ret", new Token(TokenType.Ret) },
@@ -164,7 +165,7 @@ public class Tokenizer : ITokenizer
 
         for (int i = 0; i < sequenceLength; i++)
         {
-            if (_source[_position.Offset + i] != sequence[i])
+            if (char.ToLower(_source[_position.Offset + i]) != char.ToLower(sequence[i]))
             {
                 return false;
             }

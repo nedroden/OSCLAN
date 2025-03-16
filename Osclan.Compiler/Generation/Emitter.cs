@@ -1,5 +1,5 @@
 using System.Text;
-using Osclan.Compiler.Generation.Architecture.Resources.Aarch64;
+using Osclan.Compiler.Generation.Architecture.AArch64.Resources;
 
 namespace Osclan.Compiler.Generation;
 

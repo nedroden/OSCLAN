@@ -52,6 +52,7 @@ The language has the following (case-insensitive) keywords:
 | space       | Shorthand that denotes an arbitrary number of spaces.                                                                    |
 | zero        | Shorthand that denotes an arbitrary number of zeros.                                                                     |
 | ok          | Alias of `zero`, only used in combination with `ret`.                                                                    |
+| failed      | Shorthand that results in the scalar value of 255.                                                                       |
 | for         | While-loop.                                                                                                              |
 | increment   | Increments a scalar value by 1                                                                                           |
 | decrement   | Decrements a scalar value by 1                                                                                           |
@@ -62,6 +63,20 @@ The language has the following (case-insensitive) keywords:
 | import | _any string_ |  Imports a module. |
 | mangler | enable, disable | Enables/disables the identifier mangler. |
 | module | _any string_ | Sets the name of the current module. |
+
+## Examples
+
+### Hello world
+
+```
+.module "main"
+
+declare public [uint(4)]::main()
+    print "Hello world!"
+    
+    ret ok
+end
+```
 
 ## Todo
 

@@ -108,10 +108,11 @@ public class Analyzer : IAnalyzer
         variableNode.Scope = _symbolTable.Guid;
         valueNode.Scope = _symbolTable.Guid;
 
-        if (valueNode.Type == AstNodeType.Allocation)
-        {
-            valueNode.Meta[MetaDataKey.VariableName] = variableNode.Value;
-        }
+        // TODO: check if commented code can indeed be removed
+        //if (valueNode.Type == AstNodeType.Allocation)
+        //{
+        valueNode.Meta[MetaDataKey.VariableName] = variableNode.Value;
+        //}
     }
 
     /// <summary>
@@ -156,6 +157,12 @@ public class Analyzer : IAnalyzer
         if (procedure.ReturnType is null && node.Children.Exists(c => c.Type == AstNodeType.Ret && c.Children.Count > 0))
         {
             throw new SourceException($"Procedure '{procedure.Name}' cannot return a value.");
+        }
+        
+        // Add an implicit return statement, if needed, since all procedures should have an epilog
+        if (node.Children.Count == 0 || node.Children[^1].Type != AstNodeType.Ret)
+        {
+            node.Children.Add(new AstNode { Type = AstNodeType.Ret });
         }
 
         (_symbolTable.Parent ?? _symbolTable).AddProcedure(procedure);
