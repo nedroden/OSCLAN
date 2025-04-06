@@ -97,8 +97,11 @@ public class AArch64Strategy : IGenerationStrategy
 
         private void GenerateIlForBlock(AstNode child)
         {
-            // TODO: Check what needs to be done to restore this to its original position, since this is not the desired
-            // order.
+            foreach (var node in child.Children)
+            {
+                GenerateIlForBlock(node);
+            }
+
             switch (child.Type)
             {
                 case AstNodeType.ProcedureCall:
@@ -123,11 +126,6 @@ public class AArch64Strategy : IGenerationStrategy
                     GenerateReturnStatement(child);
                     break;
             }
-
-            foreach (var node in child.Children)
-            {
-                GenerateIlForBlock(node);
-            }
         }
 
         private void GenerateScalar(AstNode node)
@@ -142,10 +140,8 @@ public class AArch64Strategy : IGenerationStrategy
             var currentScope = _symbolTables.Single(s => s.Key == symbolTableGuid).Value;
             var variable = currentScope.ResolveVariable(node.Meta[MetaDataKey.VariableName]);
 
-            if (variable.Register is null)
-            {
-                throw new CompilerException("Variable was not assigned a register");
-            }
+            // TODO: ensure that registers are deallocated nicely
+            variable.Register ??= _registerTable.Allocate();
             
             _emitter.EmitComment("Assigning value to variable");
             _emitter.EmitOpcode("mov", $"{variable.Register.Name}, #{node.Value}");
@@ -157,7 +153,11 @@ public class AArch64Strategy : IGenerationStrategy
             var scope = variableNode.Scope ?? throw new CompilerException("No scope defined.");
             var variable = _symbolTables[scope].ResolveVariable(variableNode.Value ?? string.Empty);
 
-            variable.Register = _registerTable.Allocate();
+            // TODO: Check if this entire method has not become redundant
+            if (variable.Register is not null)
+            {
+                variable.Register = _registerTable.Allocate();   
+            }
         }
 
         private void GenerateReturnStatement(AstNode child)

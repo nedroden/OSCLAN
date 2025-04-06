@@ -1,9 +1,9 @@
-.module "main"
+.MODULE "MAIN"
 
-declare public [uint(4)]::main()
-    print "Hello world!"
+DECLARE PUBLIC [UINT(4)]::MAIN()
+    PRINT "HELLO WORLD!"
 
-    declare [uint(4)]returnCode : ok
+    DECLARE [UINT(4)]RETURN-CODE : OK
 
-    ret returnCode
-end
+    RET RETURN-CODE
+END
