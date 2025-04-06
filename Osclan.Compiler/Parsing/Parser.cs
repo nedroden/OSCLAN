@@ -2,18 +2,22 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Osclan.Analytics;
+using Osclan.Analytics.Abstractions;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Parsing.Abstractions;
 using Osclan.Compiler.Tokenization;
 
 namespace Osclan.Compiler.Parsing;
 
-public class Parser : IParser
+public class Parser(IAnalyticsClientFactory analyticsClientFactory) : IParser
 {
     private List<Token> _tokens = [];
     private uint _currentTokenIndex;
     private Token CurrentToken => _tokens[(int)_currentTokenIndex];
     private uint _numberOfTokens;
+
+    private readonly AnalyticsClient<Parser> _analyticsClient = analyticsClientFactory.CreateClient<Parser>();
 
     private void ThrowUnexpectedTokenException(TokenType expected) =>
         throw new SourceException($"Unexpected token '{Enum.GetName(typeof(TokenType), CurrentToken.Type)}'. Expected '{Enum.GetName(typeof(TokenType), expected)}' at {CurrentToken.Position}");
@@ -99,6 +103,8 @@ public class Parser : IParser
             default:
                 throw new SourceException($"Unknown compiler directive '{directive.Value}'");
         }
+        
+        _analyticsClient.LogEvent($"Encountered compiler directive '{directive.Value.ToLower()}'");
 
         return directive;
     }
@@ -498,7 +504,7 @@ public class Parser : IParser
                 {
                     // In case of dynamic offsets we add the offset as a child node
                     var numberOfParams = variable.Children.Count(x => x.Type == AstNodeType.DynOffset);
-                    sb.AppendFormat("_${0}", numberOfParams);
+                    sb.Append($"_${numberOfParams}");
 
                     var offset = ParseVariable();
                     offset.Type = AstNodeType.DynOffset;

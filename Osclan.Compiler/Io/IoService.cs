@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Osclan.Analytics;
+using Osclan.Analytics.Abstractions;
 using Osclan.Compiler.Io.Abstractions;
 
 namespace Osclan.Compiler.Io;
@@ -11,17 +13,10 @@ namespace Osclan.Compiler.Io;
 /// Implements the <see cref="IIoService"/> interface by implementing read and write operations
 /// for physical media.
 /// </summary>
-public class DiskService : IIoService
+public class DiskService(CompilerOptions options, IAnalyticsClientFactory analyticsClientFactory) : IIoService
 {
-    private readonly CompilerOptions _options;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DiskService"/> class.
-    /// </summary>
-    /// <param name="options">The compilation options.</param>
-    public DiskService(CompilerOptions options) =>
-        _options = options;
-
+    private readonly AnalyticsClient<DiskService> _analyticsClient = analyticsClientFactory.CreateClient<DiskService>();
+    
     /// <summary>
     /// Reads a file from disk.
     /// </summary>
@@ -38,12 +33,12 @@ public class DiskService : IIoService
     /// <exception cref="IOException">Thrown when the directory name could not be determined.</exception>
     public void SaveIntermediateFile(string filename, string content)
     {
-        if (!_options.GenerateIntermediateFiles)
+        if (!options.GenerateIntermediateFiles)
         {
             return;
         }
 
-        var path = Path.Combine(_options.TempFilePath, filename);
+        var path = Path.Combine(options.TempFilePath, filename);
         var dirname = Path.GetDirectoryName(path);
         if (!Directory.Exists(dirname))
         {
@@ -51,6 +46,7 @@ public class DiskService : IIoService
         }
 
         File.WriteAllText(path, content);
+        _analyticsClient.LogEvent($"Intermediate file saved: {path}");
     }
 
     /// <summary>
@@ -78,5 +74,7 @@ public class DiskService : IIoService
 
             File.WriteAllText($"{path}/{targetName}", contents);
         }
+        
+        _analyticsClient.LogEvent($"Native libraries copied to {path}");
     }
 }

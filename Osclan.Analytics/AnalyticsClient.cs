@@ -24,5 +24,5 @@ public class AnalyticsClient<T>(ILogger<T> logger) : IAnalyticsClient
     #endif
 
     public void LogError(string message) =>
-        logger.LogInformation(message);
+        logger.LogError(message);
 }

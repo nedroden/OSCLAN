@@ -22,8 +22,4 @@
   <ItemGroup>
     <ProjectReference Include="..\Osclan.Analytics\Osclan.Analytics.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Configuration\" />
-  </ItemGroup>
 </Project>

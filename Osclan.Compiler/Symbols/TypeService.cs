@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Meta;
@@ -27,6 +28,7 @@ public static class TypeService
     {
         if (from.IsPointer != to.IsPointer)
         {
+            Console.WriteLine("This is what causes the type assignment error");
             return TypeCompatibility.Illegal;
         }
         
@@ -59,7 +61,8 @@ public static class TypeService
         var type = new Type(node.RawType?.Name ?? string.Empty)
         {
             UnmangledName = node.RawType?.Name ?? string.Empty,
-            SizeInBytes = 0
+            SizeInBytes = node.RawType?.Size ?? 0,
+            IsPointer = node.RawType?.IsPointer ?? false
         };
 
         if (string.IsNullOrWhiteSpace(type.Name))
@@ -72,8 +75,6 @@ public static class TypeService
             // Since this is the type itself, use its node's value as the name
             type.Name = node.Value ?? string.Empty;
         }
-
-        type.IsPointer = node.RawType?.IsPointer ?? false;
 
         foreach (var child in node.Children)
         {

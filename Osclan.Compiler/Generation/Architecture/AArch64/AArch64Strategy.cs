@@ -46,7 +46,7 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
                     case AstNodeType.Directive: break;
                     case AstNodeType.Structure: break;
                     default:
-                        Console.WriteLine($"Generation for {node.TypeString} is not yet implemented.");
+                        analyticsClient.LogWarning($"Generation for {node.TypeString} is not yet implemented.");
                         break;
                 }
             }
@@ -54,8 +54,6 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
         
         private void GenerateRoot()
         {
-            analyticsClient.LogEvent("Generating code for the program root");
-
             emitter.EmitDirect($"; AArch64 code generated at {DateTime.UtcNow}");
             emitter.EmitDirect(".global _main");
             emitter.EmitDirect(".align 8");
@@ -75,7 +73,7 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
 
         private void GenerateProcedureIl(AstNode node)
         {
-            analyticsClient.LogEvent($"Generating prolog of procedure with name '{node.Value}'");
+            analyticsClient.LogEvent($"Generating code for procedure with name '{node.Value}'");
             node.Value = Mangler.Mangle(node.Value ?? string.Empty);
 
             // Procedure prolog
@@ -126,8 +124,6 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
 
         private void GenerateScalar(AstNode node)
         {
-            analyticsClient.LogEvent("Generating allocation of scalar value");
-            
             // If this is not a variable, ignore for now.
             if (!node.Meta.TryGetValue(MetaDataKey.VariableName, out _))
             {
@@ -147,8 +143,6 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
 
         private void GenerateDeclaration(AstNode child)
         {
-            analyticsClient.LogEvent("Generating code for variable declaration");
-            
             var variableNode = child.Children.Single(c => c.Type == AstNodeType.Variable);
             var scope = variableNode.Scope ?? throw new CompilerException("No scope defined.");
             var variable = symbolTables[scope].ResolveVariable(variableNode.Value ?? string.Empty);
@@ -163,7 +157,6 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
 
         private void GenerateReturnStatement(AstNode child)
         {
-            analyticsClient.LogEvent("Generating return statement");
             emitter.EmitComment("Return statement");
             
             if (child.Children.Count != 0)
@@ -224,8 +217,6 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
         /// <exception cref="NotImplementedException"></exception>
         private void GeneratePrintStatement(AstNode child)
         {
-            analyticsClient.LogEvent("Generating print statement");
-
             var childNode = child.Children.Single();
             if (childNode is not { Type: AstNodeType.Assignment })
             {
@@ -270,8 +261,6 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
 
         private void GenerateVariableDeallocation(AstNode node)
         {
-            analyticsClient.LogEvent("Generating variable deallocation");
-            
             var variableToDeallocate = node.Children.Single();
             
             var symbolTableGuid = variableToDeallocate.Scope ?? throw new CompilerException("Variable missing symbol table reference.");
@@ -294,7 +283,6 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
         private void GenerateProcedureCall(AstNode child)
         {
             var mangled = Mangler.Mangle(child.Value ?? throw new CompilerException("Unable to generate procedure call."));
-            analyticsClient.LogEvent($"Generating code for call to procedure '{child.Value}'");
 
             emitter.EmitComment("Procedure call");
             emitter.EmitOpcode("bl", mangled);
@@ -306,8 +294,6 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
         /// <param name="node"></param>
         private void GenerateMemoryAllocation(AstNode node)
         {
-            analyticsClient.LogEvent("Generating code for variable initialization of fixed size");
-
             var type = node.TypeInformation ?? throw new CompilerException("Type information not available.");
             var sizeInBytes = type.SizeInBytes;
 

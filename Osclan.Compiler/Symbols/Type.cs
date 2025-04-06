@@ -17,4 +17,6 @@ public record Type : Symbol
     public uint AddressOffset { get; set; }
 
     public Dictionary<string, Type> Fields { get; set; } = new();
+
+    public string ToShortString() => $"{UnmangledName}({SizeInBytes}){(IsPointer ? "*" : string.Empty)}";
 }

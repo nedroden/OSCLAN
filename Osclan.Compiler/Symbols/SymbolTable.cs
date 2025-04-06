@@ -221,7 +221,7 @@ public class SymbolTable
         [
             new Type(Mangler.Mangle(BuiltInType.Int)) { UnmangledName = BuiltInType.Int, SizeInBytes = 4 },
             new Type(Mangler.Mangle(BuiltInType.Uint)) { UnmangledName = BuiltInType.Uint, SizeInBytes = 4 },
-            new Type(Mangler.Mangle(BuiltInType.String)) { UnmangledName = BuiltInType.String, SizeInBytes = 4, IsPointer = true }
+            new Type(Mangler.Mangle(BuiltInType.String)) { UnmangledName = BuiltInType.String, SizeInBytes = 1, IsPointer = true }
         ]);
 
     /// <summary>

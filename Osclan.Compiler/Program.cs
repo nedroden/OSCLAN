@@ -1,6 +1,7 @@
 ﻿using System;
 using CommandLine;
 using Microsoft.Extensions.DependencyInjection;
+using Osclan.Analytics.Abstractions;
 using Osclan.Analytics.Extensions;
 using Osclan.Compiler.Analysis;
 using Osclan.Compiler.Analysis.Abstractions;
@@ -35,7 +36,15 @@ internal static class Program
         }
         catch (SourceException e)
         {
-            Console.Error.WriteLine($"Compilation error: {e.Message}");
+            Console.Error.WriteLine(e.Message);
+        }
+        catch (CompilerException e)
+        {
+            var logger = serviceProvider
+                .GetRequiredService<IAnalyticsClientFactory>()
+                .CreateClient<SourceException>();
+            
+            logger.LogError(e.Message);
         }
     }
 

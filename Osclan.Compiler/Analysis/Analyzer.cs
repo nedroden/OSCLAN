@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Osclan.Analytics;
+using Osclan.Analytics.Abstractions;
 using Osclan.Compiler.Analysis.Abstractions;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Meta;
@@ -14,6 +16,8 @@ namespace Osclan.Compiler.Analysis;
 /// </summary>
 public class Analyzer : IAnalyzer
 {
+    private readonly AnalyticsClient<Analyzer> _analyticsClient;
+
     /// <summary>
     /// A dictionary of all the symbol tables that have been created during the analysis. Used
     /// in the code generation process to determine memory allocation for variables.
@@ -25,11 +29,13 @@ public class Analyzer : IAnalyzer
     /// <summary>
     /// Initializes a new instance of the <see cref="Analyzer"/> class.
     /// </summary>
-    public Analyzer()
+    public Analyzer(IAnalyticsClientFactory analyticsClientFactory)
     {
         // Create the root symbol table
         _symbolTable = new SymbolTable(0);
         _symbolTable.AddBuiltInTypes();
+
+        _analyticsClient = analyticsClientFactory.CreateClient<Analyzer>();
     }
 
     /// <summary>
@@ -76,12 +82,10 @@ public class Analyzer : IAnalyzer
         var variableNode = node.Children[0];
         var valueNode = node.Children[1];
 
-        var type = _symbolTable.ResolveType(variableNode.RawType?.Name ?? string.Empty);
-
-        if (type.SizeInBytes == 8)
-        {
-            Console.WriteLine($"Type = {type.UnmangledName} with Size = {type.SizeInBytes} bytes");
-        }
+        var type = valueNode.Type != AstNodeType.ProcedureCall
+            ? _symbolTable.ResolveType(variableNode.RawType?.Name ?? string.Empty)
+            : _symbolTable.ResolveProcedure(valueNode.Value ?? throw new CompilerException("Procedure name not known"))
+                .ReturnType ?? throw new CompilerException("Procedure has no known return type.");
 
         var variableType = TypeService.GetType(_symbolTable, variableNode);
         var assignmentStatus = TypeService.VerifyAssignmentCompatibility(variableType, type);
@@ -89,11 +93,9 @@ public class Analyzer : IAnalyzer
         switch (assignmentStatus)
         {
             case TypeCompatibility.Illegal:
-                Developer.DumpObject(variableType);
-                Developer.DumpObject(type);
-                throw new SourceException($"Invalid assignment of value to variable '{variableNode.Value}'.");
+                throw new SourceException($"Invalid assignment of value to variable '{variableNode.Value}'. {type.ToShortString()} <- {variableType.ToShortString()} is invalid.");
             case TypeCompatibility.LossOfInformation:
-                Console.WriteLine($"Warning: possible loss of information for variable '{variableNode.Value}'.");
+                _analyticsClient.LogWarning($"Possible loss of information for variable '{variableNode.Value}'.");
                 break;
         }
 
@@ -126,6 +128,11 @@ public class Analyzer : IAnalyzer
         {
             ReturnType = node.RawType?.Name != "void" ? _symbolTable.ResolveType(node.RawType?.Name ?? string.Empty) : null
         };
+
+        if (procedure.ReturnType is not null)
+        {
+            procedure.ReturnType.SizeInBytes = node.RawType?.Size ?? 0;
+        }
 
         foreach (var child in node.Children)
         {

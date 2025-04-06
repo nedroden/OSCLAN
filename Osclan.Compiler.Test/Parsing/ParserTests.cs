@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Osclan.Analytics;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Parsing.Abstractions;
@@ -9,9 +10,7 @@ namespace Osclan.Compiler.Test.Parsing;
 
 public class ParserTests
 {
-    private readonly IParser _parser;
-
-    public ParserTests() => _parser = new Parser();
+    private readonly IParser _parser = new Parser(new AnalyticsClientFactory());
 
     [Fact]
     public void Test_Unexpected_Token_Results_In_Error()
