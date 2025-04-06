@@ -16,7 +16,7 @@ public class TokenizerTests
     public void Test_Directive_Is_Tokenized()
     {
         _readerMock.Read("TestFiles/test.osc").Returns(".include \"some-module\"");
-        var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
+        var tokenizer = new Tokenizer(new CompilerOptions { InputFile = "test.osc", TempFilePath = "TestFiles"}, _readerMock);
         var tokens = tokenizer.Tokenize();
 
         Assert.Equal(3, tokens.Count);
@@ -29,7 +29,7 @@ public class TokenizerTests
     public void Test_Double_Colon_Is_Tokenized()
     {
         _readerMock.Read("TestFiles/test.osc").Returns("::");
-        var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
+        var tokenizer = new Tokenizer(new CompilerOptions { InputFile = "test.osc", TempFilePath = "TestFiles"}, _readerMock);
         var tokens = tokenizer.Tokenize();
 
         Assert.Single(tokens);
@@ -40,7 +40,7 @@ public class TokenizerTests
     public void Test_Declare_Is_Tokenized()
     {
         _readerMock.Read("TestFiles/test.osc").Returns("declare");
-        var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
+        var tokenizer = new Tokenizer(new CompilerOptions { InputFile = "test.osc", TempFilePath = "TestFiles"}, _readerMock);
         var tokens = tokenizer.Tokenize();
 
         Assert.Single(tokens);
@@ -51,7 +51,7 @@ public class TokenizerTests
     public void Test_Random_Identifier_Is_Tokenized()
     {
         _readerMock.Read("TestFiles/test.osc").Returns("some-random-identifier");
-        var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
+        var tokenizer = new Tokenizer(new CompilerOptions { InputFile = "test.osc", TempFilePath = "TestFiles"}, _readerMock);
         var tokens = tokenizer.Tokenize();
 
         Assert.Single(tokens);
@@ -63,7 +63,7 @@ public class TokenizerTests
     public void Test_Error_Is_Thrown_When_Identifier_Starts_With_Number()
     {
         _readerMock.Read("TestFiles/test.osc").Returns("1identifier");
-        var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
+        var tokenizer = new Tokenizer(new CompilerOptions { InputFile = "test.osc", TempFilePath = "TestFiles"}, _readerMock);
 
         Assert.Throws<SourceException>(() => tokenizer.Tokenize());
     }
@@ -72,7 +72,7 @@ public class TokenizerTests
     public void Test_Error_Is_Thrown_When_String_Not_Terminated()
     {
         _readerMock.Read("TestFiles/test.osc").Returns("\"some string");
-        var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
+        var tokenizer = new Tokenizer(new CompilerOptions { InputFile = "test.osc", TempFilePath = "TestFiles"}, _readerMock);
 
         Assert.Throws<SourceException>(() => tokenizer.Tokenize());
     }
@@ -95,7 +95,7 @@ public class TokenizerTests
     public void Test_Special_Character_Is_Tokenized(char character, TokenType tokenType)
     {
         _readerMock.Read("TestFiles/test.osc").Returns(character.ToString());
-        var tokenizer = new Tokenizer(new CompilerOptions(), "TestFiles", "test.osc", _readerMock);
+        var tokenizer = new Tokenizer(new CompilerOptions { InputFile = "test.osc", TempFilePath = "TestFiles"}, _readerMock);
         var tokens = tokenizer.Tokenize();
 
         Assert.Equal(tokenType, tokens.Single().Type);

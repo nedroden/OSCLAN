@@ -7,34 +7,25 @@ using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Extensions;
 using Osclan.Compiler.Generation.Architecture.AArch64.Resources;
 using Osclan.Compiler.Generation.Assembly;
-using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 
 namespace Osclan.Compiler.Generation.Architecture.AArch64;
 
-public class AArch64Strategy : IGenerationStrategy
+public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
 {
-    private readonly Emitter _emitter;
-
     private const string KernelImmediate = "#0x80";
-
-    public AArch64Strategy(Emitter emitter) => _emitter = emitter;
 
     public string GenerateIl(AstNode tree, Dictionary<Guid, SymbolTable> symbolTables)
     {
-        var handler = new Handler(_emitter, tree, symbolTables);
+        var handler = new Handler(emitter, tree, symbolTables);
         handler.Handle();
 
-        return _emitter.GetResult();
+        return emitter.GetResult();
     }
 
-    private class Handler(Emitter emitter, AstNode root, Dictionary<Guid, SymbolTable> symbolTables)
+    private sealed class Handler(Emitter emitter, AstNode root, Dictionary<Guid, SymbolTable> symbolTables)
     {
-        private readonly Emitter _emitter = emitter;
-        private readonly AstNode _root = root;
-        private readonly Dictionary<Guid, SymbolTable> _symbolTables = symbolTables;
-
         private readonly RegisterTable _registerTable = new(31);
 
         public void Handle()
@@ -43,7 +34,7 @@ public class AArch64Strategy : IGenerationStrategy
 
             GenerateRoot();
 
-            foreach (var node in _root.Children)
+            foreach (var node in root.Children)
             {
                 switch (node.Type)
                 {
@@ -61,21 +52,21 @@ public class AArch64Strategy : IGenerationStrategy
         
         private void GenerateRoot()
         {
-            _emitter.EmitDirect($"; AArch64 code generated at {DateTime.UtcNow}");
-            _emitter.EmitDirect(".global _main");
-            _emitter.EmitDirect(".align 8");
-            _emitter.EmitNewLine();
+            emitter.EmitDirect($"; AArch64 code generated at {DateTime.UtcNow}");
+            emitter.EmitDirect(".global _main");
+            emitter.EmitDirect(".align 8");
+            emitter.EmitNewLine();
 
-            _emitter.EmitDirect(".include \"output/aarch64_native.s\"");
+            emitter.EmitDirect(".include \"output/aarch64_native.s\"");
 
-            _emitter.EmitNewLine();
+            emitter.EmitNewLine();
 
-            _emitter.EmitDirect("; Program entry point");
-            _emitter.EmitDirect("_main:"); // Entry point
-            _emitter.EmitOpcode("bl", $"{Mangler.Mangle("main")}"); // Go to main procedure
-            _emitter.EmitSyscall(Syscall.Exit);
-            _emitter.EmitOpcode("svc", KernelImmediate); // macOS supervisor call
-            _emitter.EmitNewLine();
+            emitter.EmitDirect("; Program entry point");
+            emitter.EmitDirect("_main:"); // Entry point
+            emitter.EmitOpcode("bl", $"{Mangler.Mangle("main")}"); // Go to main procedure
+            emitter.EmitSyscall(Syscall.Exit);
+            emitter.EmitOpcode("svc", KernelImmediate); // macOS supervisor call
+            emitter.EmitNewLine();
         }
 
         private void GenerateProcedureIl(AstNode node)
@@ -83,11 +74,11 @@ public class AArch64Strategy : IGenerationStrategy
             node.Value = Mangler.Mangle(node.Value ?? string.Empty);
 
             // Procedure prolog
-            _emitter.EmitDirect("; Procedure prolog");
-            _emitter.EmitDirect($"{node.Value}:");
-            _emitter.EmitOpcode("stp", "lr, fp, [sp, #-16]!"); // Save LR and FP on the stack
-            _emitter.EmitOpcode("mov", "fp, sp"); // Set frame pointer
-            _emitter.EmitComment("Procedure implementation block");
+            emitter.EmitDirect("; Procedure prolog");
+            emitter.EmitDirect($"{node.Value}:");
+            emitter.EmitOpcode("stp", "lr, fp, [sp, #-16]!"); // Save LR and FP on the stack
+            emitter.EmitOpcode("mov", "fp, sp"); // Set frame pointer
+            emitter.EmitComment("Procedure implementation block");
 
             foreach (var child in node.Children)
             {
@@ -137,21 +128,21 @@ public class AArch64Strategy : IGenerationStrategy
             }
             
             var symbolTableGuid = node.Scope ?? throw new CompilerException("Variable missing symbol table reference.");
-            var currentScope = _symbolTables.Single(s => s.Key == symbolTableGuid).Value;
+            var currentScope = symbolTables.Single(s => s.Key == symbolTableGuid).Value;
             var variable = currentScope.ResolveVariable(node.Meta[MetaDataKey.VariableName]);
 
             // TODO: ensure that registers are deallocated nicely
             variable.Register ??= _registerTable.Allocate();
             
-            _emitter.EmitComment("Assigning value to variable");
-            _emitter.EmitOpcode("mov", $"{variable.Register.Name}, #{node.Value}");
+            emitter.EmitComment("Assigning value to variable");
+            emitter.EmitOpcode("mov", $"{variable.Register.Name}, #{node.Value}");
         }
 
         private void GenerateDeclaration(AstNode child)
         {
             var variableNode = child.Children.Single(c => c.Type == AstNodeType.Variable);
             var scope = variableNode.Scope ?? throw new CompilerException("No scope defined.");
-            var variable = _symbolTables[scope].ResolveVariable(variableNode.Value ?? string.Empty);
+            var variable = symbolTables[scope].ResolveVariable(variableNode.Value ?? string.Empty);
 
             // TODO: Check if this entire method has not become redundant
             if (variable.Register is not null)
@@ -162,7 +153,7 @@ public class AArch64Strategy : IGenerationStrategy
 
         private void GenerateReturnStatement(AstNode child)
         {
-            _emitter.EmitComment("Return statement");
+            emitter.EmitComment("Return statement");
             
             if (child.Children.Count != 0)
             {
@@ -182,7 +173,7 @@ public class AArch64Strategy : IGenerationStrategy
                 {
                     // TODO: extract method
                     var scope = operand.Scope ?? throw new CompilerException("No scope defined.");
-                    var variable = _symbolTables[scope].ResolveVariable(operand.Value);
+                    var variable = symbolTables[scope].ResolveVariable(operand.Value);
 
                     if (variable.TypeName != Mangler.Mangle(BuiltInType.Uint))
                     {
@@ -195,22 +186,22 @@ public class AArch64Strategy : IGenerationStrategy
                         throw new CompilerException("Variable was not assigned to a register.");
                     }
                     
-                    _emitter.EmitOpcode("mov", $"x0, {variable.Register?.Name}");
+                    emitter.EmitOpcode("mov", $"x0, {variable.Register?.Name}");
                 }
                 
                 // TODO: support non-scalars
                 else
                 {
-                    _emitter.EmitOpcode("mov", $"x0, #{operand.Value}");
+                    emitter.EmitOpcode("mov", $"x0, #{operand.Value}");
                 }
             }
             
             // Procedure epilog
-            _emitter.EmitComment("Procedure epilog");
-            _emitter.EmitOpcode("mov", "sp, fp");
-            _emitter.EmitOpcode("ldp", "lr, fp, [sp], #16");
-            _emitter.EmitOpcode("ret");
-            _emitter.EmitNewLine();
+            emitter.EmitComment("Procedure epilog");
+            emitter.EmitOpcode("mov", "sp, fp");
+            emitter.EmitOpcode("ldp", "lr, fp, [sp], #16");
+            emitter.EmitOpcode("ret");
+            emitter.EmitNewLine();
         }
 
         /// <summary>
@@ -239,27 +230,27 @@ public class AArch64Strategy : IGenerationStrategy
             
             // Store string in memory
             var operandRegister = AllocateMemory((uint)operandLength);
-            _emitter.EmitComment("Store print statement operand in memory");
+            emitter.EmitComment("Store print statement operand in memory");
 
             var scratchRegister = _registerTable.Allocate();
             for (var i = 0; i < operandLength; i += 2)
             {
                 var byteRepr = Encoding.ASCII.GetBytes(operandValue.Window(2, i)).ToHex().PadWithZeros(4);
 
-                _emitter.EmitOpcode("mov", $"{scratchRegister.Name}, {byteRepr}");
-                _emitter.EmitOpcode("str", $"{scratchRegister.Name}, [{operandRegister.Name}, #{i}]");
+                emitter.EmitOpcode("mov", $"{scratchRegister.Name}, {byteRepr}");
+                emitter.EmitOpcode("str", $"{scratchRegister.Name}, [{operandRegister.Name}, #{i}]");
             }
 
             // Perform syscall
-            _emitter.EmitComment("Perform system call 4 (write)");
-            _emitter.EmitOpcode("mov", $"x0, #{(int)FileDescriptor.Stdout}");
-            _emitter.EmitOpcode("mov", $"x1, {operandRegister.Name}");
-            _emitter.EmitOpcode("mov", $"x2, #{operandLength}");
-            _emitter.EmitSyscall(Syscall.Write);
-            _emitter.EmitOpcode("svc", KernelImmediate);
+            emitter.EmitComment("Perform system call 4 (write)");
+            emitter.EmitOpcode("mov", $"x0, #{(int)FileDescriptor.Stdout}");
+            emitter.EmitOpcode("mov", $"x1, {operandRegister.Name}");
+            emitter.EmitOpcode("mov", $"x2, #{operandLength}");
+            emitter.EmitSyscall(Syscall.Write);
+            emitter.EmitOpcode("svc", KernelImmediate);
             
             // Free registers and deallocate memory
-            _emitter.EmitOpcode("mov", $"{scratchRegister.Name}, xzr");
+            emitter.EmitOpcode("mov", $"{scratchRegister.Name}, xzr");
             _registerTable.Free(scratchRegister);
             FreeMemory((uint)operandLength, operandRegister);
         }
@@ -269,7 +260,7 @@ public class AArch64Strategy : IGenerationStrategy
             var variableToDeallocate = node.Children.Single();
             
             var symbolTableGuid = variableToDeallocate.Scope ?? throw new CompilerException("Variable missing symbol table reference.");
-            var currentScope = _symbolTables.Single(s => s.Key == symbolTableGuid).Value;
+            var currentScope = symbolTables.Single(s => s.Key == symbolTableGuid).Value;
             var variable = currentScope.ResolveVariable(variableToDeallocate.Value ?? throw new CompilerException("Variable has no name."));
 
             if (variable.Register is null)
@@ -289,8 +280,8 @@ public class AArch64Strategy : IGenerationStrategy
         {
             var mangled = Mangler.Mangle(child.Value ?? throw new CompilerException("Unable to generate procedure call."));
 
-            _emitter.EmitComment("Procedure call");
-            _emitter.EmitOpcode("bl", mangled);
+            emitter.EmitComment("Procedure call");
+            emitter.EmitOpcode("bl", mangled);
         }
 
         /// <summary>
@@ -303,7 +294,7 @@ public class AArch64Strategy : IGenerationStrategy
             var sizeInBytes = type.SizeInBytes;
 
             var symbolTableGuid = node.Scope ?? throw new CompilerException("Variable missing symbol table reference.");
-            var currentScope = _symbolTables.Single(s => s.Key == symbolTableGuid).Value;
+            var currentScope = symbolTables.Single(s => s.Key == symbolTableGuid).Value;
             var variable = currentScope.ResolveVariable(node.Meta[MetaDataKey.VariableName]);
             
             AllocateMemory(sizeInBytes, variable.Register ?? throw new CompilerException("Variable was not assigned to a register."));
@@ -328,30 +319,30 @@ public class AArch64Strategy : IGenerationStrategy
             const MemoryProtocol protocol = MemoryProtocol.Read | MemoryProtocol.Write;
             const MemoryFlag flags = MemoryFlag.MapAnon | MemoryFlag.MapPrivate;
 
-            _emitter.EmitComment("Memory allocation");
-            _emitter.EmitOpcode("mov", "x0, xzr");
-            _emitter.EmitOpcode("mov", $"x1, #{size}");
-            _emitter.EmitOpcode("mov", $"x2, #{(int)protocol}");
-            _emitter.EmitOpcode("mov", $"x3, #{(int)flags}");
-            _emitter.EmitOpcode("mov", "x4, #-1");
-            _emitter.EmitOpcode("mov", "x5, xzr");
-            _emitter.EmitSyscall(Syscall.Mmap);
-            _emitter.EmitOpcode("svc", KernelImmediate);
+            emitter.EmitComment("Memory allocation");
+            emitter.EmitOpcode("mov", "x0, xzr");
+            emitter.EmitOpcode("mov", $"x1, #{size}");
+            emitter.EmitOpcode("mov", $"x2, #{(int)protocol}");
+            emitter.EmitOpcode("mov", $"x3, #{(int)flags}");
+            emitter.EmitOpcode("mov", "x4, #-1");
+            emitter.EmitOpcode("mov", "x5, xzr");
+            emitter.EmitSyscall(Syscall.Mmap);
+            emitter.EmitOpcode("svc", KernelImmediate);
 
-            _emitter.EmitOpcode("mov", $"{_registerTable.GetName(register)}, x0");
+            emitter.EmitOpcode("mov", $"{_registerTable.GetName(register)}, x0");
 
             return register;
         }
 
         private void FreeMemory(uint size, Register register)
         {
-            _emitter.EmitComment("Memory deallocation");
-            _emitter.EmitOpcode("mov", $"x0, {_registerTable.GetName(register)}");
-            _emitter.EmitOpcode("mov", $"x1, #{size}");
-            _emitter.EmitSyscall(Syscall.Munmap);
-            _emitter.EmitOpcode("svc", KernelImmediate);
+            emitter.EmitComment("Memory deallocation");
+            emitter.EmitOpcode("mov", $"x0, {_registerTable.GetName(register)}");
+            emitter.EmitOpcode("mov", $"x1, #{size}");
+            emitter.EmitSyscall(Syscall.Munmap);
+            emitter.EmitOpcode("svc", KernelImmediate);
 
-            _emitter.EmitOpcode("mov", $"{register.Name}, xzr");
+            emitter.EmitOpcode("mov", $"{register.Name}, xzr");
             _registerTable.Free(register.Index);
         }
     }

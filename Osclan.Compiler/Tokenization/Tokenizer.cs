@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Extensions;
-using Osclan.Compiler.Io;
 using Osclan.Compiler.Io.Abstractions;
 using Osclan.Compiler.Tokenization.Abstractions;
 
@@ -52,13 +51,11 @@ public class Tokenizer : ITokenizer
     /// Initializes a new instance of the <see cref="Tokenizer"/> class.
     /// </summary>
     /// <param name="options">Compilation options.</param>
-    /// <param name="directory">The input directory.</param>
-    /// <param name="filename">The input filename.</param>
     /// <param name="ioService">A file reader.</param>
     /// <exception cref="SourceException">Thrown when the source file is empty.</exception>
-    public Tokenizer(CompilerOptions options, string directory, string filename, IIoService ioService)
+    public Tokenizer(CompilerOptions options, IIoService ioService)
     {
-        var source = ioService.Read(Path.Combine(directory, filename));
+        var source = ioService.Read(Path.Combine(options.TempFilePath, options.InputFile));
 
         _options = options;
         _source = source;
@@ -71,7 +68,7 @@ public class Tokenizer : ITokenizer
         }
 
         _currentChar = _source[0];
-        _position = new Position { Filename = filename, Line = 1, Column = 1 };
+        _position = new Position { Filename = options.InputFile, Line = 1, Column = 1 };
     }
 
     private char? PeakNext() =>
