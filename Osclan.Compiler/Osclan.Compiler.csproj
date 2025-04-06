@@ -10,9 +10,15 @@
 
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Native/Libs/*" SkipUnchangedFiles="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Osclan.Analytics\Osclan.Analytics.csproj" />
   </ItemGroup>
 </Project>
