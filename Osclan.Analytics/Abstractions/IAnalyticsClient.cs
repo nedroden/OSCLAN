@@ -2,7 +2,9 @@ namespace Osclan.Analytics.Abstractions;
 
 public interface IAnalyticsClient
 {
-    public void LogEvent(string message);
+    void LogEvent(string message);
 
-    public void LogError(string message);
+    void LogError(string message);
+
+    void LogWarning(string message);
 }

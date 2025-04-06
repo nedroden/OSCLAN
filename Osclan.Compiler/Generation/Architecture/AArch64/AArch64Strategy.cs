@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Osclan.Analytics;
+using Osclan.Analytics.Abstractions;
 using Osclan.Compiler.Analysis;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Extensions;
@@ -12,19 +14,19 @@ using Osclan.Compiler.Symbols;
 
 namespace Osclan.Compiler.Generation.Architecture.AArch64;
 
-public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
+public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsClientFactory) : IGenerationStrategy
 {
     private const string KernelImmediate = "#0x80";
 
     public string GenerateIl(AstNode tree, Dictionary<Guid, SymbolTable> symbolTables)
     {
-        var handler = new Handler(emitter, tree, symbolTables);
+        var handler = new Handler(emitter, analyticsClientFactory.CreateClient<Handler>(), tree, symbolTables);
         handler.Handle();
 
         return emitter.GetResult();
     }
 
-    private sealed class Handler(Emitter emitter, AstNode root, Dictionary<Guid, SymbolTable> symbolTables)
+    private sealed class Handler(Emitter emitter, AnalyticsClient<Handler> analyticsClient, AstNode root, Dictionary<Guid, SymbolTable> symbolTables)
     {
         private readonly RegisterTable _registerTable = new(31);
 
@@ -52,6 +54,8 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
         
         private void GenerateRoot()
         {
+            analyticsClient.LogEvent("Generating code for the program root");
+
             emitter.EmitDirect($"; AArch64 code generated at {DateTime.UtcNow}");
             emitter.EmitDirect(".global _main");
             emitter.EmitDirect(".align 8");
@@ -71,6 +75,7 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
 
         private void GenerateProcedureIl(AstNode node)
         {
+            analyticsClient.LogEvent($"Generating prolog of procedure with name '{node.Value}'");
             node.Value = Mangler.Mangle(node.Value ?? string.Empty);
 
             // Procedure prolog
@@ -121,6 +126,8 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
 
         private void GenerateScalar(AstNode node)
         {
+            analyticsClient.LogEvent("Generating allocation of scalar value");
+            
             // If this is not a variable, ignore for now.
             if (!node.Meta.TryGetValue(MetaDataKey.VariableName, out _))
             {
@@ -140,19 +147,23 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
 
         private void GenerateDeclaration(AstNode child)
         {
+            analyticsClient.LogEvent("Generating code for variable declaration");
+            
             var variableNode = child.Children.Single(c => c.Type == AstNodeType.Variable);
             var scope = variableNode.Scope ?? throw new CompilerException("No scope defined.");
             var variable = symbolTables[scope].ResolveVariable(variableNode.Value ?? string.Empty);
 
             // TODO: Check if this entire method has not become redundant
-            if (variable.Register is not null)
+            if (variable.Register is null)
             {
+                analyticsClient.LogWarning($"Variable '{variable.UnmangledName}' was not assigned a register");
                 variable.Register = _registerTable.Allocate();   
             }
         }
 
         private void GenerateReturnStatement(AstNode child)
         {
+            analyticsClient.LogEvent("Generating return statement");
             emitter.EmitComment("Return statement");
             
             if (child.Children.Count != 0)
@@ -213,6 +224,8 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
         /// <exception cref="NotImplementedException"></exception>
         private void GeneratePrintStatement(AstNode child)
         {
+            analyticsClient.LogEvent("Generating print statement");
+
             var childNode = child.Children.Single();
             if (childNode is not { Type: AstNodeType.Assignment })
             {
@@ -257,6 +270,8 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
 
         private void GenerateVariableDeallocation(AstNode node)
         {
+            analyticsClient.LogEvent("Generating variable deallocation");
+            
             var variableToDeallocate = node.Children.Single();
             
             var symbolTableGuid = variableToDeallocate.Scope ?? throw new CompilerException("Variable missing symbol table reference.");
@@ -279,6 +294,7 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
         private void GenerateProcedureCall(AstNode child)
         {
             var mangled = Mangler.Mangle(child.Value ?? throw new CompilerException("Unable to generate procedure call."));
+            analyticsClient.LogEvent($"Generating code for call to procedure '{child.Value}'");
 
             emitter.EmitComment("Procedure call");
             emitter.EmitOpcode("bl", mangled);
@@ -290,6 +306,8 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
         /// <param name="node"></param>
         private void GenerateMemoryAllocation(AstNode node)
         {
+            analyticsClient.LogEvent("Generating code for variable initialization of fixed size");
+
             var type = node.TypeInformation ?? throw new CompilerException("Type information not available.");
             var sizeInBytes = type.SizeInBytes;
 
@@ -316,6 +334,9 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
 
         public Register AllocateMemory(uint size, Register register)
         {
+            var registerName = _registerTable.GetName(register);
+            analyticsClient.LogEvent($"Allocating {size} bytes of memory. Address stored in '{registerName}'");
+            
             const MemoryProtocol protocol = MemoryProtocol.Read | MemoryProtocol.Write;
             const MemoryFlag flags = MemoryFlag.MapAnon | MemoryFlag.MapPrivate;
 
@@ -329,15 +350,18 @@ public class AArch64Strategy(Emitter emitter) : IGenerationStrategy
             emitter.EmitSyscall(Syscall.Mmap);
             emitter.EmitOpcode("svc", KernelImmediate);
 
-            emitter.EmitOpcode("mov", $"{_registerTable.GetName(register)}, x0");
+            emitter.EmitOpcode("mov", $"{registerName}, x0");
 
             return register;
         }
 
         private void FreeMemory(uint size, Register register)
         {
+            var registerName = _registerTable.GetName(register);
+            analyticsClient.LogEvent($"Freeing {size} bytes at address stored in {registerName}");
+            
             emitter.EmitComment("Memory deallocation");
-            emitter.EmitOpcode("mov", $"x0, {_registerTable.GetName(register)}");
+            emitter.EmitOpcode("mov", $"x0, {registerName}");
             emitter.EmitOpcode("mov", $"x1, #{size}");
             emitter.EmitSyscall(Syscall.Munmap);
             emitter.EmitOpcode("svc", KernelImmediate);

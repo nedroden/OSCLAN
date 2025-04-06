@@ -9,15 +9,20 @@ namespace Osclan.Analytics;
 /// in the compilation process.
 /// </summary>
 /// <typeparam name="T"></typeparam>
-public class AnalyticsClient<T> : IAnalyticsClient
+public class AnalyticsClient<T>(ILogger<T> logger) : IAnalyticsClient
 {
-    private readonly ILogger<T> _logger;
-
-    public AnalyticsClient(ILogger<T> logger) => _logger = logger;
-
+    #if DEBUG
     public void LogEvent(string message) =>
-        _logger.LogInformation(message);
+        logger.LogInformation(message);
+
+    public void LogWarning(string message) =>
+        logger.LogWarning(message);
+    #else
+    public void LogEvent(string message) {}
+
+    public void LogWarning(string message) {}
+    #endif
 
     public void LogError(string message) =>
-        _logger.LogInformation(message);
+        logger.LogInformation(message);
 }
