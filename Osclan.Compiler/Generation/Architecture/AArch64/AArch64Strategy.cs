@@ -9,6 +9,7 @@ using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Extensions;
 using Osclan.Compiler.Generation.Architecture.AArch64.Resources;
 using Osclan.Compiler.Generation.Assembly;
+using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 
@@ -127,6 +128,7 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
             // If this is not a variable, ignore for now.
             if (!node.Meta.TryGetValue(MetaDataKey.VariableName, out _))
             {
+                analyticsClient.LogWarning("Ignored scalar not assigned to a variable.");
                 return;
             }
             
@@ -168,7 +170,7 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
                 }
 
                 var operand = childNode.Children.Single();
-                if (operand is not { Type: AstNodeType.Scalar or AstNodeType.Variable, Value: not null })
+                if (operand is not { Type: AstNodeType.Scalar or AstNodeType.String or AstNodeType.Variable, Value: not null })
                 {
                     throw new NotImplementedException();
                 }
@@ -192,7 +194,14 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
                     
                     emitter.EmitOpcode("mov", $"x0, {variable.Register?.Name}");
                 }
-                
+                else if (operand.Type == AstNodeType.String)
+                {
+                    // TODO: Free memory later on
+                    var location = StoreString(operand.Value);
+                    emitter.EmitOpcode("mov", $"x0, {location.Name}");
+                    emitter.EmitOpcode("mov", $"x1, #{operand.Value.Length}");
+                    _registerTable.Free(location);
+                }
                 // TODO: support non-scalars
                 else
                 {
@@ -224,39 +233,77 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
             }
 
             var operand = childNode.Children.Single();
-            if (operand is not { Type: AstNodeType.String, Value: not null })
+            if (operand is not { Type: AstNodeType.String or AstNodeType.Variable or AstNodeType.ProcedureCall, Value: not null })
             {
+                Developer.DumpObject(operand);
                 throw new NotImplementedException();
             }
 
+            emitter.EmitComment("Perform system call 4 (write)");
+            Register? operandRegister = null;
+
             var operandValue = $"{operand.Value}\n\0";
             var operandLength = operandValue.Length;
+
             
-            // Store string in memory
-            var operandRegister = AllocateMemory((uint)operandLength);
+            if (operand.Type == AstNodeType.Variable)
+            {
+                // TODO: extract method
+                var symbolTableGuid = operand.Scope ?? throw new CompilerException("Variable missing symbol table reference.");
+                var currentScope = symbolTables.Single(s => s.Key == symbolTableGuid).Value;
+                var variable = currentScope.ResolveVariable(operand.Value ?? throw new CompilerException("Variable has no name."));
+
+                emitter.EmitOpcode("mov", $"x2, #{variable.SizeInBytes}");
+                emitter.EmitOpcode("mov", $"x1, {variable.Register?.Name}");
+            }
+            else if (operand.Type != AstNodeType.ProcedureCall)
+            {
+                // Store string in memory
+                operandRegister = StoreString(operandValue);
+                emitter.EmitOpcode("mov", $"x1, {operandRegister.Name}");
+                emitter.EmitOpcode("mov", $"x2, #{operandLength}");
+            }
+            else
+            {
+                // Preserve register and string length, set by the return statement
+                emitter.EmitOpcode("mov", "x2, x1");
+                emitter.EmitOpcode("mov", "x1, x0");
+            }
+
+            emitter.EmitOpcode("mov", $"x0, #{(int)FileDescriptor.Stdout}");
+            emitter.EmitSyscall(Syscall.Write);
+            emitter.EmitOpcode("svc", KernelImmediate);
+            
+            // Free registers and deallocate memory
+            if (operandRegister is not null)
+            {
+                FreeMemory((uint)operandLength, operandRegister);
+
+                return;
+            }
+
+            FreeMemoryUnsafe();
+        }
+
+        private Register StoreString(string value)
+        {
+            var length = (uint)value.Length;
+            var operandRegister = AllocateMemory(length);
             emitter.EmitComment("Store print statement operand in memory");
 
             var scratchRegister = _registerTable.Allocate();
-            for (var i = 0; i < operandLength; i += 2)
+            for (var i = 0; i < length; i += 2)
             {
-                var byteRepr = Encoding.ASCII.GetBytes(operandValue.Window(2, i)).ToHex().PadWithZeros(4);
+                var byteRepr = Encoding.ASCII.GetBytes(value.Window(2, i)).ToHex().PadWithZeros(4);
 
                 emitter.EmitOpcode("mov", $"{scratchRegister.Name}, {byteRepr}");
                 emitter.EmitOpcode("str", $"{scratchRegister.Name}, [{operandRegister.Name}, #{i}]");
             }
 
-            // Perform syscall
-            emitter.EmitComment("Perform system call 4 (write)");
-            emitter.EmitOpcode("mov", $"x0, #{(int)FileDescriptor.Stdout}");
-            emitter.EmitOpcode("mov", $"x1, {operandRegister.Name}");
-            emitter.EmitOpcode("mov", $"x2, #{operandLength}");
-            emitter.EmitSyscall(Syscall.Write);
-            emitter.EmitOpcode("svc", KernelImmediate);
-            
-            // Free registers and deallocate memory
             emitter.EmitOpcode("mov", $"{scratchRegister.Name}, xzr");
             _registerTable.Free(scratchRegister);
-            FreeMemory((uint)operandLength, operandRegister);
+
+            return operandRegister;
         }
 
         private void GenerateVariableDeallocation(AstNode node)
@@ -354,6 +401,22 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
 
             emitter.EmitOpcode("mov", $"{register.Name}, xzr");
             _registerTable.Free(register.Index);
+        }
+
+        /// <summary>
+        /// Frees memory based on the values in x0 and x1 (address and length respectively). The register table is NOT
+        /// updated, meaning any register determined through the variable table CANNOT be used again.
+        /// </summary>
+        private void FreeMemoryUnsafe()
+        {
+            analyticsClient.LogEvent("Performing unsafe memory deallocation based on values in x0 and x1");
+            
+            emitter.EmitComment("Unsafe memory deallocation");
+            emitter.EmitSyscall(Syscall.Munmap);
+            emitter.EmitOpcode("svc", KernelImmediate);
+
+            emitter.EmitOpcode("mov", "x0, xzr");
+            emitter.EmitOpcode("mov", "x1, xzr");
         }
     }
 }

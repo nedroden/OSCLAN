@@ -15,7 +15,7 @@ public class AnalyticsClientFactory : IAnalyticsClientFactory, IDisposable
             {
                 options.IncludeScopes = true;
                 options.SingleLine = true;
-                options.TimestampFormat = "HH:mm:ss ";
+                options.TimestampFormat = "HH:mm:ss.fff ";
             }));
     }
 
