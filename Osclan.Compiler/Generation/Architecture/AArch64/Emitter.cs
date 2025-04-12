@@ -1,7 +1,7 @@
 using System.Text;
 using Osclan.Compiler.Generation.Architecture.AArch64.Resources;
 
-namespace Osclan.Compiler.Generation;
+namespace Osclan.Compiler.Generation.Architecture.AArch64;
 
 /// <summary>
 /// Represents an IL builder.

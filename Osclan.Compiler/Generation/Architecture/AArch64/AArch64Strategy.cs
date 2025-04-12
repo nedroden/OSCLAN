@@ -7,6 +7,7 @@ using Osclan.Analytics.Abstractions;
 using Osclan.Compiler.Analysis;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Extensions;
+using Osclan.Compiler.Generation.Architecture.AArch64.Generators;
 using Osclan.Compiler.Generation.Architecture.AArch64.Resources;
 using Osclan.Compiler.Generation.Assembly;
 using Osclan.Compiler.Meta;
@@ -96,15 +97,12 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
             {
                 GenerateIlForBlock(node);
             }
+            
+            // TODO: move
+            var factory = new NodeGeneratorFactory(emitter, new AnalyticsClientFactory(), _registerTable, symbolTables);
 
             switch (child.Type)
             {
-                case AstNodeType.ProcedureCall:
-                    GenerateProcedureCall(child);
-                    break;
-                case AstNodeType.Declaration:
-                    GenerateDeclaration(child);
-                    break;
                 case AstNodeType.Allocation:
                     GenerateMemoryAllocation(child);
                     break;
@@ -114,46 +112,14 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
                 case AstNodeType.Print:
                     GeneratePrintStatement(child);
                     break;
-                case AstNodeType.Scalar:
-                    GenerateScalar(child);
-                    break;
                 case AstNodeType.Ret:
                     GenerateReturnStatement(child);
                     break;
-            }
-        }
-
-        private void GenerateScalar(AstNode node)
-        {
-            // If this is not a variable, ignore for now.
-            if (!node.Meta.TryGetValue(MetaDataKey.VariableName, out _))
-            {
-                analyticsClient.LogWarning("Ignored scalar not assigned to a variable.");
-                return;
-            }
-            
-            var symbolTableGuid = node.Scope ?? throw new CompilerException("Variable missing symbol table reference.");
-            var currentScope = symbolTables.Single(s => s.Key == symbolTableGuid).Value;
-            var variable = currentScope.ResolveVariable(node.Meta[MetaDataKey.VariableName]);
-
-            // TODO: ensure that registers are deallocated nicely
-            variable.Register ??= _registerTable.Allocate();
-            
-            emitter.EmitComment("Assigning value to variable");
-            emitter.EmitOpcode("mov", $"{variable.Register.Name}, #{node.Value}");
-        }
-
-        private void GenerateDeclaration(AstNode child)
-        {
-            var variableNode = child.Children.Single(c => c.Type == AstNodeType.Variable);
-            var scope = variableNode.Scope ?? throw new CompilerException("No scope defined.");
-            var variable = symbolTables[scope].ResolveVariable(variableNode.Value ?? string.Empty);
-
-            // TODO: Check if this entire method has not become redundant
-            if (variable.Register is null)
-            {
-                analyticsClient.LogWarning($"Variable '{variable.UnmangledName}' was not assigned a register");
-                variable.Register = _registerTable.Allocate();   
+                case AstNodeType.Declaration:
+                case AstNodeType.ProcedureCall:
+                case AstNodeType.Scalar:
+                    factory.CreateGenerator(child).Generate();
+                    break;
             }
         }
 
@@ -325,14 +291,6 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
             }
             
             FreeMemory(variable.SizeInBytes, variable.Register);
-        }
-
-        private void GenerateProcedureCall(AstNode child)
-        {
-            var mangled = Mangler.Mangle(child.Value ?? throw new CompilerException("Unable to generate procedure call."));
-
-            emitter.EmitComment("Procedure call");
-            emitter.EmitOpcode("bl", mangled);
         }
 
         /// <summary>
