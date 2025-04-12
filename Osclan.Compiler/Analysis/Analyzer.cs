@@ -79,21 +79,24 @@ public class Analyzer : IAnalyzer
             throw new CompilerException("Expected declaration node to have two children.");
         }
 
+        // Given x = y, these variables represent x and y respectively
         var variableNode = node.Children[0];
         var valueNode = node.Children[1];
 
-        var type = valueNode.Type != AstNodeType.ProcedureCall
+        // The type of y in x = y
+        var originType = valueNode.Type != AstNodeType.ProcedureCall
             ? _symbolTable.ResolveType(variableNode.RawType?.Name ?? string.Empty)
             : _symbolTable.ResolveProcedure(valueNode.Value ?? throw new CompilerException("Procedure name not known"))
                 .ReturnType ?? throw new CompilerException("Procedure has no known return type.");
 
-        var variableType = TypeService.GetType(_symbolTable, variableNode);
-        var assignmentStatus = TypeService.VerifyAssignmentCompatibility(variableType, type);
+        // The type of x in x = y
+        var variableType = _symbolTable.ResolveType(variableNode.RawType?.Name ?? string.Empty); // TODO: verify this does not break things
+        var assignmentStatus = TypeService.VerifyAssignmentCompatibility(variableType, originType);
 
         switch (assignmentStatus)
         {
             case TypeCompatibility.Illegal:
-                throw new SourceException($"Invalid assignment of value to variable '{variableNode.Value}'. {type.ToShortString()} <- {variableType.ToShortString()} is invalid.");
+                throw new SourceException($"Invalid assignment of value to variable '{variableNode.Value}'. {variableType.ToShortString()} <- {originType.ToShortString()} is invalid.");
             case TypeCompatibility.LossOfInformation:
                 _analyticsClient.LogWarning($"Possible loss of information for variable '{variableNode.Value}'.");
                 break;
@@ -101,9 +104,9 @@ public class Analyzer : IAnalyzer
 
         _symbolTable.AddVariable(new Variable(variableNode.Value ?? throw new CompilerException("Variable name cannot be empty."))
         {
-            TypeName = type.Name,
-            IsPointer = type.IsPointer,
-            SizeInBytes = valueNode.RawType?.Size > 0 ? valueNode.RawType.Size : type.SizeInBytes
+            TypeName = originType.Name,
+            IsPointer = originType.IsPointer,
+            SizeInBytes = valueNode.RawType?.Size > 0 ? valueNode.RawType.Size : originType.SizeInBytes
         });
 
         // Both variable and value refer to the same symbol table (for now)

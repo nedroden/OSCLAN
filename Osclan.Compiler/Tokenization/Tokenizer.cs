@@ -55,7 +55,7 @@ public class Tokenizer : ITokenizer
     /// <exception cref="SourceException">Thrown when the source file is empty.</exception>
     public Tokenizer(CompilerOptions options, IIoService ioService)
     {
-        var source = ioService.Read(Path.Combine(options.TempFilePath, options.InputFile));
+        var source = ioService.Read(options.InputFile);
 
         _options = options;
         _source = source;
@@ -68,7 +68,7 @@ public class Tokenizer : ITokenizer
         }
 
         _currentChar = _source[0];
-        _position = new Position { Filename = options.InputFile, Line = 1, Column = 1 };
+        _position = new Position { Filename = options.InputFileName, Line = 1, Column = 1 };
     }
 
     private char? PeakNext() =>

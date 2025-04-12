@@ -1,4 +1,4 @@
-# OSCLAN
+![OSCLAN logo](logo_simple.png)
 
 Compiler for OSCLAN (Old-SChool LANguage), a business-oriented toy language that compiles to AArch64 Assembly.
 
