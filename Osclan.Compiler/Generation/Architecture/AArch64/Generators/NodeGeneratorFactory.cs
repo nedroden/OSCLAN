@@ -13,27 +13,27 @@ public class NodeGeneratorFactory(
     AnalyticsClientFactory analyticsClientFactory,
     RegisterTable registerTable,
     Dictionary<Guid, SymbolTable> symbolTables)
-{
-    public INodeGenerator CreateGenerator(AstNode node)
-    {
-        return node.Type switch
+{   
+    private readonly AnalyticsClient<NodeGeneratorFactory> _analyticsClient = analyticsClientFactory.CreateClient<NodeGeneratorFactory>();
+
+    public INodeGenerator? CreateGenerator(AstNode node) =>
+        node.Type switch
         {
             AstNodeType.Allocation => new MemoryAllocationGenerator(node, emitter, analyticsClientFactory.CreateClient<MemoryAllocationGenerator>(), symbolTables, registerTable),
             AstNodeType.Deallocation => new DeallocationGenerator(node, emitter, analyticsClientFactory.CreateClient<DeallocationGenerator>(), symbolTables, registerTable),
-            AstNodeType.Print => new PrintStatementGenerator(node, emitter, analyticsClientFactory.CreateClient<PrintStatementGenerator>(), symbolTables, registerTable),
+            AstNodeType.Print => new PrintStatementGenerator(node, emitter, analyticsClientFactory.CreateClient<PrintStatementGenerator>(), GetCurrentScope(node.Children[0].Children[0]), registerTable),
             AstNodeType.Ret => new ReturnStatementGenerator(node, emitter, analyticsClientFactory.CreateClient<ReturnStatementGenerator>(), symbolTables, registerTable),
             AstNodeType.Declaration => new DeclarationGenerator(node, analyticsClientFactory.CreateClient<DeclarationGenerator>(), symbolTables, registerTable),
             AstNodeType.ProcedureCall => new ProcedureCallGenerator(node, emitter),
             AstNodeType.Scalar => new ScalarGenerator(node, emitter, analyticsClientFactory.CreateClient<ScalarGenerator>(), GetCurrentScope(node), registerTable),
-            _ => throw new NotImplementedException()
+            _ => null
         };
-    }
 
     private SymbolTable GetCurrentScope(AstNode node)
     {
         if (node.Scope is null)
         {
-            analyticsClientFactory.CreateClient<NodeGeneratorFactory>().LogWarning($"Creating empty scope for node of type '{node.Type}'");
+            _analyticsClient.LogWarning($"Creating empty scope for node of type '{node.Type}'");
 
             return new SymbolTable(255);
         }

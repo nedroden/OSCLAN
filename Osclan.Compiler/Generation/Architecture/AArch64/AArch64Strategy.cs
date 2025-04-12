@@ -93,7 +93,7 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
             }
             
             new NodeGeneratorFactory(emitter, new AnalyticsClientFactory(), _registerTable, symbolTables)
-                .CreateGenerator(child)
+                .CreateGenerator(child)?
                 .Generate();
         }
     }

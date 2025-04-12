@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Osclan.Analytics;
 using Osclan.Compiler.Exceptions;
@@ -14,7 +13,7 @@ public class PrintStatementGenerator(
     AstNode node,
     Emitter emitter,
     AnalyticsClient<PrintStatementGenerator> analyticsClient,
-    Dictionary<Guid, SymbolTable> symbolTables,
+    SymbolTable currentScope,
     RegisterTable registerTable)
     : MemoryManagingGenerator<PrintStatementGenerator>(registerTable, emitter, analyticsClient)
 {
@@ -35,35 +34,11 @@ public class PrintStatementGenerator(
         }
 
         _emitter.EmitComment("Perform system call 4 (write)");
-        Register? operandRegister = null;
 
         var operandValue = $"{operand.Value}\n\0";
         var operandLength = operandValue.Length;
-
         
-        if (operand.Type == AstNodeType.Variable)
-        {
-            // TODO: extract method
-            var symbolTableGuid = operand.Scope ?? throw new CompilerException("Variable missing symbol table reference.");
-            var currentScope = symbolTables.Single(s => s.Key == symbolTableGuid).Value;
-            var variable = currentScope.ResolveVariable(operand.Value ?? throw new CompilerException("Variable has no name."));
-
-            _emitter.EmitOpcode("mov", $"x2, #{variable.SizeInBytes}");
-            _emitter.EmitOpcode("mov", $"x1, {variable.Register?.Name}");
-        }
-        else if (operand.Type != AstNodeType.ProcedureCall)
-        {
-            // Store string in memory
-            operandRegister = StoreString(operandValue);
-            _emitter.EmitOpcode("mov", $"x1, {operandRegister.Name}");
-            _emitter.EmitOpcode("mov", $"x2, #{operandLength}");
-        }
-        else
-        {
-            // Preserve register and string length, set by the return statement
-            _emitter.EmitOpcode("mov", "x2, x1");
-            _emitter.EmitOpcode("mov", "x1, x0");
-        }
+        var operandRegister = SetParameters(operand, operandValue, operandLength);
 
         _emitter.EmitOpcode("mov", $"x0, #{(int)FileDescriptor.Stdout}");
         _emitter.EmitSyscall(Syscall.Write);
@@ -78,5 +53,42 @@ public class PrintStatementGenerator(
         }
 
         FreeMemoryUnsafe();
+    }
+
+    private Register? SetParameters(AstNode operand, string operandValue, int operandLength)
+    {
+        switch (operand.Type)
+        {
+            case AstNodeType.Variable: HandleVariableOperand(operand); break;
+            case AstNodeType.ProcedureCall: HandleProcedureCallOperand(); break;
+            default: return HandleStringOperand(operandValue, operandLength);
+        }
+
+        return null;
+    }
+
+    private void HandleProcedureCallOperand()
+    {
+        // Preserve register and string length, set by the return statement
+        _emitter.EmitOpcode("mov", "x2, x1");
+        _emitter.EmitOpcode("mov", "x1, x0");
+    }
+
+    private Register HandleStringOperand(string operandValue, int operandLength)
+    {
+        var stringRegister = StoreString(operandValue);
+
+        _emitter.EmitOpcode("mov", $"x1, {stringRegister.Name}");
+        _emitter.EmitOpcode("mov", $"x2, #{operandLength}");
+
+        return stringRegister;
+    }
+
+    private void HandleVariableOperand(AstNode operand)
+    {
+        var variable = currentScope.ResolveVariable(operand.Value ?? throw new CompilerException("Variable has no name."));
+
+        _emitter.EmitOpcode("mov", $"x2, #{variable.SizeInBytes}");
+        _emitter.EmitOpcode("mov", $"x1, {variable.Register?.Name}");
     }
 }
