@@ -18,6 +18,10 @@ public class NodeGeneratorFactory(
     {
         return node.Type switch
         {
+            AstNodeType.Allocation => new MemoryAllocationGenerator(node, emitter, analyticsClientFactory.CreateClient<MemoryAllocationGenerator>(), symbolTables, registerTable),
+            AstNodeType.Deallocation => new DeallocationGenerator(node, emitter, analyticsClientFactory.CreateClient<DeallocationGenerator>(), symbolTables, registerTable),
+            AstNodeType.Print => new PrintStatementGenerator(node, emitter, analyticsClientFactory.CreateClient<PrintStatementGenerator>(), symbolTables, registerTable),
+            AstNodeType.Ret => new ReturnStatementGenerator(node, emitter, analyticsClientFactory.CreateClient<ReturnStatementGenerator>(), symbolTables, registerTable),
             AstNodeType.Declaration => new DeclarationGenerator(node, analyticsClientFactory.CreateClient<DeclarationGenerator>(), symbolTables, registerTable),
             AstNodeType.ProcedureCall => new ProcedureCallGenerator(node, emitter),
             AstNodeType.Scalar => new ScalarGenerator(node, emitter, analyticsClientFactory.CreateClient<ScalarGenerator>(), GetCurrentScope(node), registerTable),
