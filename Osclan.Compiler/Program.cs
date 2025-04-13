@@ -42,7 +42,7 @@ internal static class Program
         {
             var logger = serviceProvider
                 .GetRequiredService<IAnalyticsClientFactory>()
-                .CreateClient<SourceException>();
+                .CreateClient<CompilerException>();
             
             logger.LogError(e.Message);
         }

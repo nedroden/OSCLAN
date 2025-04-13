@@ -149,6 +149,8 @@ public class Analyzer : IAnalyzer
                     IsPointer = type.IsPointer,
                     SizeInBytes = type.SizeInBytes
                 });
+
+                child.Meta[MetaDataKey.ProcedureName] = procedure.Name;
             }
             else if (child.Type == AstNodeType.Ret)
             {

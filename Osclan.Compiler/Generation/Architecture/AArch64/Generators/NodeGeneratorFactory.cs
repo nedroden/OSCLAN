@@ -26,6 +26,7 @@ public class NodeGeneratorFactory(
             AstNodeType.Declaration => new DeclarationGenerator(node, analyticsClientFactory.CreateClient<DeclarationGenerator>(), symbolTables, registerTable),
             AstNodeType.ProcedureCall => new ProcedureCallGenerator(node, emitter),
             AstNodeType.Scalar => new ScalarGenerator(node, emitter, analyticsClientFactory.CreateClient<ScalarGenerator>(), GetCurrentScope(node), registerTable),
+            AstNodeType.Argument => new ArgumentGenerator(node, analyticsClientFactory.CreateClient<ArgumentGenerator>(), GetCurrentScope(node), registerTable),
             _ => null
         };
 
