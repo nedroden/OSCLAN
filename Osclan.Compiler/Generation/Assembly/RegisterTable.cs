@@ -1,4 +1,5 @@
 using System.Linq;
+using Osclan.Analytics;
 using Osclan.Compiler.Exceptions;
 
 namespace Osclan.Compiler.Generation.Assembly;
@@ -20,15 +21,21 @@ public enum RegisterState
     InUse
 }
 
-public class RegisterTable(int registers)
+public class RegisterTable(int registers, AnalyticsClient<RegisterTable> analyticsClient)
 {
     private readonly Register[] _state = Enumerable.Range(0, registers).Select(i => new Register((short)i, RegisterState.Free)).ToArray();
 
-    public void Free(Register register) =>
+    public void Free(Register register)
+    {
         _state[register.Index].State = RegisterState.Free;
-    
-    public void Free(short registerName) =>
+        analyticsClient.LogEvent($"Unreserved register '{_state[register.Index].Name}'");
+    }
+
+    public void Free(short registerName)
+    {
         _state.Single(r => r.Index == registerName).State = RegisterState.Free;
+        analyticsClient.LogEvent($"Unreserved register '{registerName}'");
+    }
 
     public Register Allocate()
     {
@@ -40,6 +47,7 @@ public class RegisterTable(int registers)
         }
         
         register.State = RegisterState.InUse;
+        analyticsClient.LogEvent($"Reserved register '{register.Name}'");
 
         return register;
     }
@@ -54,6 +62,7 @@ public class RegisterTable(int registers)
         var register = _state.First(r => r.Index == registerId);
         
         register.State = RegisterState.InUse;
+        analyticsClient.LogEvent($"Reserved register '{register.Name}' in unsafe mode");
 
         return register;
     }

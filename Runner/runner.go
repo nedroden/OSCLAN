@@ -41,7 +41,7 @@ func (r *Runner) Run() error {
 func (r *Runner) CompileFile() error {
 	compilationCommand := fmt.Sprintf("dotnet run --project=Osclan.Compiler -- -i -f ./%s", r.Filename)
 
-	command := exec.Command("bash", "-c", compilationCommand)
+	command := exec.Command("/bin/bash", "-c", compilationCommand)
 	command.Dir = "/Users/robert/Projects/OSCLAN"
 	command.Stderr = os.Stderr
 

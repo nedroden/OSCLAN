@@ -4,6 +4,7 @@ using Osclan.Analytics;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Generation.Architecture.AArch64.Resources;
 using Osclan.Compiler.Generation.Assembly;
+using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 
@@ -75,7 +76,7 @@ public class PrintStatementGenerator(
     }
 
     private Register HandleStringOperand(string operandValue, int operandLength)
-    {
+    {   
         var stringRegister = StoreString(operandValue);
 
         _emitter.EmitOpcode("mov", $"x1, {stringRegister.Name}");

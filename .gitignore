@@ -13,3 +13,5 @@ obj
 a.out
 
 *.DotSettings.user
+
+osclan-runner

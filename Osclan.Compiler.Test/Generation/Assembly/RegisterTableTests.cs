@@ -1,4 +1,5 @@
 using System.Linq;
+using Osclan.Analytics;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Generation.Assembly;
 
@@ -6,7 +7,7 @@ namespace Osclan.Compiler.Test.Generation.Assembly;
 
 public class RegisterTableTests
 {
-    private readonly RegisterTable _sut = new(31);
+    private readonly RegisterTable _sut = new(31, new AnalyticsClientFactory().CreateClient<RegisterTable>());
 
     [Fact]
     public void Test_Register_Table_Is_Initialized_With_Number_Of_Registers() =>
@@ -49,7 +50,7 @@ public class RegisterTableTests
     [Fact]
     public void Test_Allocating_Too_Many_Registers_Throws_Exception()
     {
-        var sut = new RegisterTable(1);
+        var sut = new RegisterTable(1,  new AnalyticsClientFactory().CreateClient<RegisterTable>());
         sut.Allocate();
 
         Assert.Throws<SourceException>(() => sut.Allocate());

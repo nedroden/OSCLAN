@@ -6,11 +6,21 @@ using Osclan.Compiler.Generation.Assembly;
 
 namespace Osclan.Compiler.Generation.Architecture.AArch64.Generators;
 
-public abstract class MemoryManagingGenerator<T>(
-    RegisterTable registerTable,
-    Emitter emitter,
-    AnalyticsClient<T> analyticsClient) : INodeGenerator
+public abstract class MemoryManagingGenerator<T> : INodeGenerator
 {
+    protected readonly Emitter emitter;
+    protected readonly RegisterTable registerTable;
+    protected readonly AnalyticsClient<T> analyticsClient;
+
+    protected MemoryManagingGenerator(RegisterTable registerTable,
+        Emitter emitter,
+        AnalyticsClient<T> analyticsClient)
+    {
+        this.emitter = emitter;
+        this.registerTable = registerTable;
+        this.analyticsClient = analyticsClient;
+    }
+
     protected const string KernelImmediate = "0x80";
 
     /// <summary>§

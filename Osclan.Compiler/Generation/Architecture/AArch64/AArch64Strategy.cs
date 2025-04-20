@@ -16,15 +16,16 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
 
     public string GenerateIl(AstNode tree, Dictionary<Guid, SymbolTable> symbolTables)
     {
-        var handler = new Handler(emitter, analyticsClientFactory.CreateClient<Handler>(), tree, symbolTables);
+        var handler = new Handler(emitter, analyticsClientFactory, tree, symbolTables);
         handler.Handle();
 
         return emitter.GetResult();
     }
 
-    private sealed class Handler(Emitter emitter, AnalyticsClient<Handler> analyticsClient, AstNode root, Dictionary<Guid, SymbolTable> symbolTables)
+    private sealed class Handler(Emitter emitter, IAnalyticsClientFactory analyticsClientFactory, AstNode root, Dictionary<Guid, SymbolTable> symbolTables)
     {
-        private readonly RegisterTable _registerTable = new(31);
+        private readonly RegisterTable _registerTable = new(31, analyticsClientFactory.CreateClient<RegisterTable>());
+        private readonly AnalyticsClient<Handler> _analyticsClient = analyticsClientFactory.CreateClient<Handler>();
 
         public void Handle()
         {
@@ -42,7 +43,7 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
                     case AstNodeType.Directive: break;
                     case AstNodeType.Structure: break;
                     default:
-                        analyticsClient.LogWarning($"Generation for {node.TypeString} is not yet implemented.");
+                        _analyticsClient.LogWarning($"Generation for {node.TypeString} is not yet implemented.");
                         break;
                 }
             }
@@ -59,7 +60,6 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
 
             emitter.EmitNewLine();
 
-            emitter.EmitDirect("; Program entry point");
             emitter.EmitDirect("_main:"); // Entry point
             emitter.EmitOpcode("bl", $"{Mangler.Mangle("main")}"); // Go to main procedure
             emitter.EmitSyscall(Syscall.Exit);
@@ -69,15 +69,13 @@ public class AArch64Strategy(Emitter emitter, IAnalyticsClientFactory analyticsC
 
         private void GenerateProcedureIl(AstNode node)
         {
-            analyticsClient.LogEvent($"Generating code for procedure with name '{node.Value}'");
+            _analyticsClient.LogEvent($"Generating code for procedure with name '{node.Value}'");
             node.Value = Mangler.Mangle(node.Value ?? string.Empty);
 
             // Procedure prolog
-            emitter.EmitDirect("; Procedure prolog");
             emitter.EmitDirect($"{node.Value}:");
             emitter.EmitOpcode("stp", "lr, fp, [sp, #-16]!"); // Save LR and FP on the stack
             emitter.EmitOpcode("mov", "fp, sp"); // Set frame pointer
-            emitter.EmitComment("Procedure implementation block");
 
             foreach (var child in node.Children)
             {
