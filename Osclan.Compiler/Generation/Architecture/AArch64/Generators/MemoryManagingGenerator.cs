@@ -89,6 +89,14 @@ public abstract class MemoryManagingGenerator<T> : INodeGenerator
     {
         var length = (uint)value.Length;
         var operandRegister = AllocateMemory(length);
+
+        return StoreString(value, operandRegister);
+    }
+
+    protected Register StoreString(string value, Register register)
+    {
+        var length = (uint)value.Length;
+
         emitter.EmitComment("Store print statement operand in memory");
 
         var scratchRegister = registerTable.Allocate();
@@ -97,13 +105,13 @@ public abstract class MemoryManagingGenerator<T> : INodeGenerator
             var byteRepr = Encoding.ASCII.GetBytes(value.Window(2, i)).ToHex().PadWithZeros(4);
 
             emitter.EmitOpcode("mov", $"{scratchRegister.Name}, {byteRepr}");
-            emitter.EmitOpcode("str", $"{scratchRegister.Name}, [{operandRegister.Name}, #{i}]");
+            emitter.EmitOpcode("str", $"{scratchRegister.Name}, [{register.Name}, #{i}]");
         }
 
         emitter.EmitOpcode("mov", $"{scratchRegister.Name}, xzr");
         registerTable.Free(scratchRegister);
 
-        return operandRegister;
+        return register;   
     }
 
     public abstract void Generate();

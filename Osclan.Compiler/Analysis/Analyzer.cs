@@ -151,6 +151,7 @@ public class Analyzer : IAnalyzer
                 });
 
                 child.Meta[MetaDataKey.ProcedureName] = procedure.Name;
+                child.Meta[MetaDataKey.ArgumentIndex] = (procedure.Parameters.Count - 1).ToString();
             }
             else if (child.Type == AstNodeType.Ret)
             {

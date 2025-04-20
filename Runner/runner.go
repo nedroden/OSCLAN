@@ -72,7 +72,7 @@ func (r *Runner) ShouldRecompileProject() (bool, error) {
 }
 
 func (r *Runner) RunExecutable() error {
-	command := exec.Command("bash", "-c", "./a.out")
+	command := exec.Command("/bin/bash", "-c", "./a.out")
 
 	command.Dir = "/Users/robert/Projects/OSCLAN"
 	command.Stderr = os.Stderr

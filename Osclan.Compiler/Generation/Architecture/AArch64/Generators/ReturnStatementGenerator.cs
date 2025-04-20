@@ -4,7 +4,6 @@ using System.Linq;
 using Osclan.Analytics;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Generation.Assembly;
-using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 
@@ -69,8 +68,12 @@ public class ReturnStatementGenerator(
         {
             throw new CompilerException("Variable was not assigned to a register.");
         }
-                
-        _emitter.EmitOpcode("mov", $"x0, {variable.Register?.Name}");
+
+        // Only load the return value into x0 if it is not already there
+        if (variable.Register.Index != 0)
+        {
+            _emitter.EmitOpcode("mov", $"x0, {variable.Register?.Name}");
+        }
     }
 
     private void HandleScalarOperand(AstNode operand)

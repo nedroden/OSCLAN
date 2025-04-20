@@ -4,5 +4,6 @@ public enum MetaDataKey
 {
     RequiredTypeMatch,
     ProcedureName,
-    VariableName
+    VariableName,
+    ArgumentIndex
 }

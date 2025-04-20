@@ -1,6 +1,7 @@
 using Osclan.Analytics;
 using Osclan.Compiler.Analysis;
 using Osclan.Compiler.Generation.Assembly;
+using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 
@@ -22,8 +23,6 @@ public class ArgumentGenerator(
         
         var variable = currentScope.ResolveVariable(node.Value ?? string.Empty);
 
-        // TODO: We should be getting this warning every time since a register should be assigned
-        // as soon as the argument is passed, thus making this entire class redundant.
         if (variable.Register is not null)
         {
             analyticsClient.LogWarning("Argument was already assigned a register");
@@ -31,6 +30,7 @@ public class ArgumentGenerator(
             return;
         }
 
-        variable.Register = registerTable.Allocate();   
+        var argumentIndex = node.Meta[MetaDataKey.ArgumentIndex];
+        variable.Register = registerTable.UnsafeAllocate(short.Parse(argumentIndex));
     }
 }

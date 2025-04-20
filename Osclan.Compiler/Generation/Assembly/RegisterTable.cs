@@ -76,6 +76,9 @@ public class RegisterTable(int registers, AnalyticsClient<RegisterTable> analyti
     public string GetName(Register register) =>
         GetName(register.Index);
     
+    public Register GetRegister(short registerIndex) =>
+        _state.First(r => r.Index == registerIndex);
+    
     public Register[] GetRegisters() => 
         _state;
 }

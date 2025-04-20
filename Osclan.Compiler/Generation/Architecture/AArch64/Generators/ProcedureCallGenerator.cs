@@ -23,15 +23,13 @@ public class ProcedureCallGenerator(
         var mangled = Mangler.Mangle(node.Value ?? throw new CompilerException("Unable to generate procedure call."));
         var arguments = node.Children.Where(c => c.Type == AstNodeType.Argument).ToList();
 
-        _emitter.EmitComment("Procedure call");
-        _emitter.EmitOpcode("bl", mangled);
-
         if (arguments.Count != 0)
         {
-            // TODO: zorgen dat parametervariabelen bij het starten van de procedure
-            // een register krijgen toegekend (x0-x7)
             PassArguments(arguments);
         }
+
+        _emitter.EmitComment("Procedure call");
+        _emitter.EmitOpcode("bl", mangled);
     }
 
     private void PassArguments(List<AstNode> arguments)
@@ -48,8 +46,7 @@ public class ProcedureCallGenerator(
             switch (argument.Type)
             {
                 case AstNodeType.String:
-                    _ = StoreString(argument.Value ?? string.Empty);
-                    // TODO: Store in register xi, i in 0..7
+                    _ = StoreString(argument.Value ?? string.Empty, registerTable.GetRegister((short)i));
                     break;
                 default: throw new NotImplementedException();
             }
