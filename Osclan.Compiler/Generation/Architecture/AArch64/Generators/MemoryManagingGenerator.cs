@@ -21,7 +21,7 @@ public abstract class MemoryManagingGenerator<T> : INodeGenerator
         this.analyticsClient = analyticsClient;
     }
 
-    protected const string KernelImmediate = "0x80";
+    protected const string KernelImmediate = "#0x80";
 
     /// <summary>§
     /// Allocates memory and saves the address of the allocated memory in x0. The address is then moved
@@ -72,6 +72,8 @@ public abstract class MemoryManagingGenerator<T> : INodeGenerator
     /// <summary>
     /// Frees memory based on the values in x0 and x1 (address and length respectively). The register table is NOT
     /// updated, meaning any register determined through the variable table CANNOT be used again.
+    ///
+    /// Of course, this means that x0 and x1 are set BEFORE calling this method.
     /// </summary>
     protected void FreeMemoryUnsafe()
     {
@@ -85,17 +87,13 @@ public abstract class MemoryManagingGenerator<T> : INodeGenerator
         emitter.EmitOpcode("mov", "x1, xzr");
     }
 
-    protected Register StoreString(string value)
-    {
-        var length = (uint)value.Length;
-        var operandRegister = AllocateMemory(length);
-
-        return StoreString(value, operandRegister);
-    }
+    protected Register StoreString(string value) => 
+        StoreString(value, registerTable.Allocate());
 
     protected Register StoreString(string value, Register register)
     {
         var length = (uint)value.Length;
+        _ = AllocateMemory(length, register);
 
         emitter.EmitComment("Store print statement operand in memory");
 

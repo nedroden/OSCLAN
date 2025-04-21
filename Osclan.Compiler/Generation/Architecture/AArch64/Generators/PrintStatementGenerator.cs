@@ -4,7 +4,6 @@ using Osclan.Analytics;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Generation.Architecture.AArch64.Resources;
 using Osclan.Compiler.Generation.Assembly;
-using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 
@@ -52,7 +51,10 @@ public class PrintStatementGenerator(
 
             return;
         }
-
+        
+        // The address of the string is in x1, and the length is in x2. FreeMemoryUnsafe() expects these to be in x0 and x1
+        _emitter.EmitOpcode("mov", "x0, x1");
+        _emitter.EmitOpcode("mov", "x1, x2");
         FreeMemoryUnsafe();
     }
 

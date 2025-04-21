@@ -24,10 +24,11 @@ public class NodeGeneratorFactory(
             AstNodeType.Print => new PrintStatementGenerator(node, emitter, analyticsClientFactory.CreateClient<PrintStatementGenerator>(), GetCurrentScope(node.Children[0].Children[0]), registerTable),
             AstNodeType.Ret => new ReturnStatementGenerator(node, emitter, analyticsClientFactory.CreateClient<ReturnStatementGenerator>(), symbolTables, registerTable),
             AstNodeType.Declaration => new DeclarationGenerator(node, analyticsClientFactory.CreateClient<DeclarationGenerator>(), symbolTables, registerTable),
-            AstNodeType.ProcedureCall => new ProcedureCallGenerator(node, emitter, analyticsClientFactory.CreateClient<ProcedureCallGenerator>(), registerTable),
+            AstNodeType.ProcedureCall => new ProcedureCallGenerator(node, emitter, analyticsClientFactory.CreateClient<ProcedureCallGenerator>(), GetCurrentScope(node), registerTable),
             AstNodeType.Scalar => new ScalarGenerator(node, emitter, analyticsClientFactory.CreateClient<ScalarGenerator>(), GetCurrentScope(node), registerTable),
             AstNodeType.String => new StringGenerator(node, emitter, analyticsClientFactory.CreateClient<StringGenerator>(), GetCurrentScope(node), registerTable),
             AstNodeType.Argument => new ArgumentGenerator(node, analyticsClientFactory.CreateClient<ArgumentGenerator>(), GetCurrentScope(node), registerTable),
+            AstNodeType.Assignment => new AssignmentGenerator(node, emitter, analyticsClientFactory.CreateClient<AssignmentGenerator>(), symbolTables, registerTable),
             _ => null
         };
 

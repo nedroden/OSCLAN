@@ -4,6 +4,7 @@ using System.Linq;
 using Osclan.Analytics;
 using Osclan.Compiler.Exceptions;
 using Osclan.Compiler.Generation.Assembly;
+using Osclan.Compiler.Meta;
 using Osclan.Compiler.Parsing;
 using Osclan.Compiler.Symbols;
 

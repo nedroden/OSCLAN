@@ -256,6 +256,12 @@ public class Tokenizer : ITokenizer
 
         Advance();
 
+        // Very basic escape sequence handling
+        stringBuilder
+            .Replace("\\n", "\n")
+            .Replace("\\t", "\t")
+            .Replace("\\0", "\0");
+
         return new Token(TokenType.String, stringBuilder.ToString(), originalPosition);
     }
 
