@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
+use anyhow::{anyhow};
 
 #[derive(Debug)]
 pub struct Token {
@@ -21,13 +22,13 @@ pub enum TokenType {
     Colon,
 }
 
-pub struct Tokenizer {
+pub struct Tokenizer<'a> {
     pub tokens: Vec<Token>,
-    source: std::str::Chars<'static>,
+    source: std::str::Chars<'a>,
     current_char: Option<char>,
 }
 
-impl Tokenizer {
+impl<'a> Tokenizer<'a> {
     pub fn new() -> Self {
         Tokenizer {
             tokens: Vec::new(),
@@ -88,11 +89,6 @@ impl Tokenizer {
         }
     }
 
-    fn skip_pattern(&mut self, pattern: &str) -> anyhow::Result<()> {
-        self.advance_size(pattern.len());
-        Ok(())
-    }
-
     fn parse_identifier(&mut self) -> anyhow::Result<()> {
         let mut chars: Vec<char> = Vec::new();
 
@@ -101,10 +97,10 @@ impl Tokenizer {
             self.advance();
         }
 
-        let directive = chars.iter().collect::<String>();
+        let value = chars.iter().collect::<String>();
         let token = Token {
-            token_type: TokenType::Identifier,
-            value: directive,
+            token_type: if self.is_register(&value) { TokenType::Register } else { TokenType::Identifier },
+            value,
         };
 
         self.tokens.push(token);
@@ -136,32 +132,24 @@ impl Tokenizer {
 
         let mut chars: Vec<char> = Vec::new();
 
-        while !self.is_at_eol() && self.current_char.unwrap().is_numeric() {
+        while !self.is_at_eol() && self.current_char.unwrap().is_alphanumeric() {
             chars.push(self.current_char.unwrap());
             self.advance();
         }
 
-        let directive = chars.iter().collect::<String>();
-        let token = Token {
-            token_type: TokenType::Number,
-            value: directive,
-        };
+        let value = chars.iter().collect::<String>();
 
-        Ok(token)
+        match get_number_as_int(&value) {
+            Ok(num) => Ok(Token {
+                token_type: TokenType::Number,
+                value: num.to_string(),
+            }),
+            Err(e) => Err(anyhow!("Invalid number: {}", value))
+        }
     }
 
     fn advance(&mut self) {
         self.current_char = self.source.next();
-    }
-
-    fn advance_size(&mut self, n: usize) {
-        for i in 0..n {
-            if self.is_at_eol() {
-                break;
-            }
-
-            self.advance();
-        }
     }
 
     fn is_at_eol(&self) -> bool {
@@ -177,5 +165,36 @@ impl Tokenizer {
             Ok(content) => Ok(content),
             Err(e) => Err(e.into()),
         }
+    }
+
+    fn is_register(&self, identifier: &str) -> bool {
+        let regex = regex::Regex::new(r"^([RWX])").unwrap();
+
+        if !regex.is_match(&identifier.to_uppercase()) {
+            return false;
+        }
+
+        identifier[1..].chars().all(|c| c.is_digit(10)) || identifier[1..].eq_ignore_ascii_case("zr")
+    }
+}
+
+fn get_number_as_int(number: &str) -> anyhow::Result<i64> {
+    if number.starts_with("0x") {
+        return match i64::from_str_radix(&number[2..], 16) {
+            Ok(num) => Ok(num),
+            Err(_) => Err(anyhow!("Invalid hexadecimal number: {}", number)),
+        }
+    }
+
+    if number.starts_with("0b") {
+        return match i64::from_str_radix(&number[2..], 2) {
+            Ok(num) => Ok(num),
+            Err(_) => Err(anyhow!("Invalid binary number: {}", number)),
+        }
+    }
+
+    match number.parse::<i64>() {
+        Ok(num) => Ok(num),
+        Err(_) => Err(anyhow!("Invalid number: {}", number)),
     }
 }
