@@ -15,3 +15,5 @@ a.out
 *.DotSettings.user
 
 osclan-runner
+
+Assembler/target
