@@ -4,15 +4,14 @@ use anyhow::{anyhow};
 
 #[derive(Debug)]
 pub struct Token {
-    token_type: TokenType,
-    value: String
+    pub token_type: TokenType,
+    pub value: String
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TokenType {
     Comma,
     Label,
-    Register,
     Identifier,
     Lbracket,
     Rbracket,
@@ -20,6 +19,7 @@ pub enum TokenType {
     ExclamationMark,
     Directive,
     Colon,
+    NewLine,
 }
 
 pub struct Tokenizer<'a> {
@@ -52,6 +52,11 @@ impl<'a> Tokenizer<'a> {
             if current_char == ';' {
                 self.skip_comment();
                 continue;
+            }
+
+            if current_char == 0x0A as char {
+                self.tokens.push(Token { token_type: TokenType::NewLine, value: "".to_string() });
+                continue
             }
 
             if current_char.is_whitespace() {
@@ -99,7 +104,7 @@ impl<'a> Tokenizer<'a> {
 
         let value = chars.iter().collect::<String>();
         let token = Token {
-            token_type: if self.is_register(&value) { TokenType::Register } else { TokenType::Identifier },
+            token_type: TokenType::Identifier,
             value,
         };
 
@@ -165,16 +170,6 @@ impl<'a> Tokenizer<'a> {
             Ok(content) => Ok(content),
             Err(e) => Err(e.into()),
         }
-    }
-
-    fn is_register(&self, identifier: &str) -> bool {
-        let regex = regex::Regex::new(r"^([RWX])").unwrap();
-
-        if !regex.is_match(&identifier.to_uppercase()) {
-            return false;
-        }
-
-        identifier[1..].chars().all(|c| c.is_digit(10)) || identifier[1..].eq_ignore_ascii_case("zr")
     }
 }
 
