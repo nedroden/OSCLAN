@@ -5,10 +5,11 @@ use anyhow::{anyhow};
 #[derive(Debug)]
 pub struct Token {
     pub token_type: TokenType,
-    pub value: String
+    pub value: String,
+    pub position: Position,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenType {
     Comma,
     Label,
@@ -26,6 +27,13 @@ pub struct Tokenizer<'a> {
     pub tokens: Vec<Token>,
     source: std::str::Chars<'a>,
     current_char: Option<char>,
+    current_position: Position,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Position {
+    pub line: usize,
+    pub column: usize,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -34,6 +42,7 @@ impl<'a> Tokenizer<'a> {
             tokens: Vec::new(),
             current_char: Option::from('\0'),
             source: "".chars(),
+            current_position: Position { line: 1, column: 0 },
         }
     }
 
@@ -48,6 +57,7 @@ impl<'a> Tokenizer<'a> {
 
         while !self.is_at_eol() {
             let current_char = self.current_char.unwrap();
+            let position = self.current_position;
 
             if current_char == ';' {
                 self.skip_comment();
@@ -55,7 +65,9 @@ impl<'a> Tokenizer<'a> {
             }
 
             if current_char == 0x0A as char {
-                self.tokens.push(Token { token_type: TokenType::NewLine, value: "".to_string() });
+                self.tokens.push(Token { token_type: TokenType::NewLine, value: "".to_string(), position });
+                self.current_position.line +=1;
+                self.advance();
                 continue
             }
 
@@ -72,8 +84,8 @@ impl<'a> Tokenizer<'a> {
             let token = match current_char {
                 '.' => self.parse_directive()?,
                 '#' => self.parse_number()?,
-                ',' => Token { token_type: TokenType::Comma, value: String::new(), },
-                ':' => Token { token_type: TokenType::Colon, value: String::new(), },
+                ',' => Token { token_type: TokenType::Comma, value: String::new(), position, },
+                ':' => Token { token_type: TokenType::Colon, value: String::new(), position, },
                 _ => panic!("unexpected character: {}", current_char)
             };
 
@@ -96,6 +108,7 @@ impl<'a> Tokenizer<'a> {
 
     fn parse_identifier(&mut self) -> anyhow::Result<()> {
         let mut chars: Vec<char> = Vec::new();
+        let position = self.current_position;
 
         while !self.is_at_eol() && self.is_at_identifier() {
             chars.push(self.current_char.unwrap());
@@ -106,6 +119,7 @@ impl<'a> Tokenizer<'a> {
         let token = Token {
             token_type: TokenType::Identifier,
             value,
+            position,
         };
 
         self.tokens.push(token);
@@ -114,6 +128,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn parse_directive(&mut self) -> anyhow::Result<Token> {
+        let position = self.current_position;
         self.advance();
 
         let mut chars: Vec<char> = Vec::new();
@@ -127,12 +142,14 @@ impl<'a> Tokenizer<'a> {
         let token = Token {
             token_type: TokenType::Directive,
             value: directive,
+            position,
         };
 
         Ok(token)
     }
 
     fn parse_number(&mut self) -> anyhow::Result<Token> {
+        let position = self.current_position;
         self.advance();
 
         let mut chars: Vec<char> = Vec::new();
@@ -148,13 +165,15 @@ impl<'a> Tokenizer<'a> {
             Ok(num) => Ok(Token {
                 token_type: TokenType::Number,
                 value: num.to_string(),
+                position,
             }),
-            Err(e) => Err(anyhow!("Invalid number: {}", value))
+            Err(_) => Err(anyhow!("Invalid number: {}", value))
         }
     }
 
     fn advance(&mut self) {
         self.current_char = self.source.next();
+        self.current_position.column += 1;
     }
 
     fn is_at_eol(&self) -> bool {

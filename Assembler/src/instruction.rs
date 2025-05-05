@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::Bytes;
+use enum_stringify::EnumStringify;
 
 macro_rules! register_instruction{
     ($instructions: ident, $mnemonic: expr, $operands: expr) => {
@@ -20,7 +20,7 @@ pub struct Instruction {
     pub operands: Vec<Vec<OperandType>>,
 }
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Eq, PartialEq, Hash, EnumStringify)]
 pub enum Mnemonic {
     Mov,
     Add,

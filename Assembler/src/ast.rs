@@ -1,8 +1,8 @@
 #[derive(Debug)]
-pub struct AstNode<'a> {
+pub struct AstNode {
     pub node_type: NodeType,
     pub value: String,
-    pub children: Vec<&'a AstNode<'a>>,
+    pub children: Vec<AstNode>,
 }
 
 #[derive(Debug)]
@@ -15,8 +15,8 @@ pub enum NodeType {
     Immediate,
 }
 
-impl<'a> AstNode<'a> {
-    pub fn new(node_type: NodeType, value: String) -> AstNode<'a> {
+impl AstNode {
+    pub fn new(node_type: NodeType, value: String) -> AstNode {
         AstNode {
             node_type,
             value,
@@ -24,7 +24,7 @@ impl<'a> AstNode<'a> {
         }
     }
 
-    pub fn add_child(&mut self, child: &'a AstNode<'a>) {
+    pub fn add_child(&mut self, child: AstNode) {
         self.children.push(child);
     }
 }
