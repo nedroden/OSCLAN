@@ -67,6 +67,7 @@ impl<'a> Tokenizer<'a> {
             if current_char == 0x0A as char {
                 self.tokens.push(Token { token_type: TokenType::NewLine, value: "".to_string(), position });
                 self.current_position.line +=1;
+                self.current_position.column = 0;
                 self.advance();
                 continue
             }
@@ -77,13 +78,13 @@ impl<'a> Tokenizer<'a> {
             }
 
             if self.is_at_identifier() {
-                self.parse_identifier()?;
+                self.tokenize_identifier()?;
                 continue;
             }
 
             let token = match current_char {
-                '.' => self.parse_directive()?,
-                '#' => self.parse_number()?,
+                '.' => self.tokenize_directive()?,
+                '#' => self.tokenize_number()?,
                 ',' => Token { token_type: TokenType::Comma, value: String::new(), position, },
                 ':' => Token { token_type: TokenType::Colon, value: String::new(), position, },
                 _ => panic!("unexpected character: {}", current_char)
@@ -103,10 +104,12 @@ impl<'a> Tokenizer<'a> {
 
         if !self.is_at_eol() {
             self.advance();
+            self.current_position.line +=1;
+            self.current_position.column = 0;
         }
     }
 
-    fn parse_identifier(&mut self) -> anyhow::Result<()> {
+    fn tokenize_identifier(&mut self) -> anyhow::Result<()> {
         let mut chars: Vec<char> = Vec::new();
         let position = self.current_position;
 
@@ -127,7 +130,7 @@ impl<'a> Tokenizer<'a> {
         Ok(())
     }
 
-    fn parse_directive(&mut self) -> anyhow::Result<Token> {
+    fn tokenize_directive(&mut self) -> anyhow::Result<Token> {
         let position = self.current_position;
         self.advance();
 
@@ -148,7 +151,7 @@ impl<'a> Tokenizer<'a> {
         Ok(token)
     }
 
-    fn parse_number(&mut self) -> anyhow::Result<Token> {
+    fn tokenize_number(&mut self) -> anyhow::Result<Token> {
         let position = self.current_position;
         self.advance();
 

@@ -5,7 +5,7 @@ use crate::tokenizer::{Token, TokenType};
 
 pub struct Parser<'a> {
     tokens: &'a Vec<Token>,
-    current_token: Option<&'a Token>,
+    current_index: usize,
     instructions: HashMap<Mnemonic, Instruction>
 }
 
@@ -13,7 +13,7 @@ impl<'a> Parser<'a> {
     pub fn new(tokens: &'a Vec<Token>) -> Self {
         Parser {
             tokens,
-            current_token: tokens.iter().next(),
+            current_index: 0,
             instructions: load_instructions(),
         }
     }
@@ -21,22 +21,32 @@ impl<'a> Parser<'a> {
     pub fn build_ast(&mut self) -> anyhow::Result<AstNode> {
         let mut root_node = AstNode::new(NodeType::Root, String::from(""));
 
-        while let Some(token) = self.current_token {
+        while !self.is_at_eol() {
+            let token = &self.tokens[self.current_index];
             println!("{:?}", token);
 
+            // We're at an empty line
+            if self.is_at(TokenType::NewLine) {
+                self.advance();
+                continue;
+            }
+
             let result = match token.token_type {
+                TokenType::Identifier if self.relative_read_token(1)?.token_type == TokenType::Colon => self.parse_label(),
                 TokenType::Identifier => self.parse_identifier(),
                 TokenType::Directive => self.parse_directive(),
-                _ => return Err(anyhow::anyhow!("Token of type {:?} not implemented", token.token_type)),
+                _ => return Err(anyhow::anyhow!("Token of type {:?} at position {:?} not implemented", token.token_type, token.position)),
             };
 
             match result {
                 Ok(node) => root_node.add_child(node),
                 Err(err) => return Err(err),
             }
+
+            // TODO: Kijken of dit dingen misschien stuk heeft gemaakt
+            self.advance();
         }
 
-        // TODO: fix this
         Ok(root_node)
     }
 
@@ -50,23 +60,9 @@ impl<'a> Parser<'a> {
         identifier[1..].chars().all(|c| c.is_digit(10)) || identifier[1..].eq_ignore_ascii_case("zr")
     }
 
-    fn consume(&mut self, token_type: TokenType) -> anyhow::Result<&Token> {
-        if let Some(token) = self.current_token {
-            if token.token_type != token_type {
-                return Err(anyhow::anyhow!("unexpected token of type '{:?}', expected '{:?}, at position {:?}'", token.token_type, token_type, token.position));
-            }
-
-            self.current_token = self.tokens.iter().next();
-
-            return Ok(token)
-        }
-
-        Err(anyhow::anyhow!("Expected token of type {:?}, but found EOF", token_type))
-    }
-
     fn is_at(&self, token_type: TokenType) -> bool {
-        if let Some(token) = self.current_token {
-            if token.token_type == token_type {
+        if !self.is_at_eol() {
+            if self.tokens[self.current_index].token_type == token_type {
                 return true
             }
         }
@@ -75,57 +71,113 @@ impl<'a> Parser<'a> {
     }
 
     fn is_at_eol(&self) -> bool {
-        self.current_token.is_none()
+        self.current_index >= self.tokens.len()
+    }
+
+    fn parse_label(&mut self) -> anyhow::Result<AstNode> {
+        let label_node = AstNode::new(NodeType::Label, String::from(&self.tokens[self.current_index].value));
+
+        self.move_cursor(2);
+
+        Ok(label_node)
     }
 
     fn parse_identifier(&mut self) -> anyhow::Result<AstNode> {
-        let token = self.consume(TokenType::Identifier)?;
-        let is_instruction = self.instructions.iter().any(|t| t.0.to_string().to_uppercase() == token.value.to_uppercase());
+        let token = self.read_token()?.value.to_uppercase();
+        let is_instruction = self.instructions.iter().any(|t| t.0.to_string().to_uppercase() == token);
 
         let mut instruction = match is_instruction {
-            true => AstNode::new(NodeType::Instruction, token.value.to_string()),
-            false => return Err(anyhow::anyhow!("Expected an instruction"))
+            true => AstNode::new(NodeType::Instruction, token),
+            false => return Err(anyhow::anyhow!("Expected an instruction, instead got token with value '{:?}'", token))
         };
 
-        while !self.is_at_eol() && !self.is_at(TokenType::NewLine) {
-            let current_token_type = self.current_token.unwrap().token_type;
+        self.advance();
 
-            let operand_token = match current_token_type {
-                TokenType::Identifier => self.consume(TokenType::Identifier)?,
-                TokenType::Number => self.consume(TokenType::Number)?,
-                _ => return Err(anyhow::anyhow!("Unexpected token of type {:?} at position {:?}", current_token_type, token.position))
+        while !self.is_at_eol() && !self.is_at(TokenType::NewLine) {
+            let current_token = self.read_token()?;
+            let (current_position, current_type) = (current_token.position, current_token.token_type);
+
+            let operand_token = match current_type {
+                TokenType::Identifier => current_token,
+                TokenType::Number => current_token,
+                _ => return Err(anyhow::anyhow!("Unexpected token of type {:?} at position {:?}", current_type, current_token.position))
             };
 
-            if self.is_register(&token.value) {
-                let operand_node = AstNode::new(NodeType::Register, operand_token.value.to_string());
-                instruction.children.push(operand_node);
+            instruction.children.push(match current_type {
+                _ if self.is_register(&current_token.value.clone()) => AstNode::new(NodeType::Register, operand_token.value.to_string()),
+                TokenType::Identifier => AstNode::new(NodeType::Label, operand_token.value.to_string()),
+                TokenType::Number => AstNode::new(NodeType::Immediate, operand_token.value.to_string()),
+                _ => return Err(anyhow::anyhow!("Unexpected token of type {:?} at position {:?}", current_type, current_token.position)),
+            });
+
+            self.advance();
+
+            if !self.is_at_eol() && !self.is_at(TokenType::NewLine) && !self.is_at(TokenType::Comma) {
+                return Err(anyhow::anyhow!("Expected a comma after operand at position {:?}, instead got '{:?}'", current_position, current_type))
             }
 
-            if !self.is_at_eol() && !self.is_at(TokenType::NewLine) {
-                self.consume(TokenType::Comma)?;
-            }
+            self.advance();
         }
 
-        if !self.is_at(TokenType::Comma) {
-            self.consume(TokenType::NewLine)?;
+        if !self.is_at_eol() && !self.is_at(TokenType::NewLine) {
+            return Err(anyhow::anyhow!("Expected newline at position {:?}", self.tokens[self.current_index].position))
         }
 
-        // Err(anyhow::anyhow!("Unexpected token of type '{:?}'", token))
+        self.advance();
+
         Ok(instruction)
     }
 
-    // TODO: Finish implementation
     fn parse_directive(&mut self) -> anyhow::Result<AstNode> {
-        _ = self.consume(TokenType::Directive)?;
+        let directive = self.read_token();
+        let argument = self.relative_read_token(1);
 
-        if self.is_at(TokenType::Identifier) {
-            _ = self.consume(TokenType::Number)?;
-        } else {
-            _ = self.consume(TokenType::Identifier)?;
+        let mut node = AstNode::new(NodeType::Directive, directive?.value.to_string());
+
+        let operand = match self.relative_read_token(1)?.token_type {
+            TokenType::Identifier => AstNode::new(NodeType::Label, argument?.value.to_string()),
+            TokenType::Number => AstNode::new(NodeType::Immediate, argument?.value.to_string()),
+            unexpected => return Err(anyhow::anyhow!("Unexpected token (of type {:?}) used as operand.", unexpected))
+        };
+
+        node.children.push(operand);
+
+        self.move_cursor(2);
+
+        if !self.is_at(TokenType::NewLine) {
+            return Err(anyhow::anyhow!("Expected a newline after directive operand"));
         }
 
-        _ = self.consume(TokenType::NewLine)?;
+        self.advance();
 
-        Ok(AstNode::new(NodeType::Directive, String::from("")))
+        Ok(node)
+    }
+
+    fn advance(&mut self) {
+        self.current_index += 1;
+    }
+
+    fn move_cursor(&mut self, delta: usize) {
+        self.current_index += delta;
+    }
+
+    fn read_token(&self) -> anyhow::Result<&Token> {
+        if self.is_at_eol() {
+            return Err(anyhow::anyhow!("Unexpected EOL"));
+        }
+
+        Ok(&self.tokens[self.current_index])
+    }
+
+    fn relative_read_token(&self, delta: usize) -> anyhow::Result<&Token> {
+        if self.current_index + delta >= self.tokens.len() {
+            return Err(anyhow::anyhow!("Unexpected EOF"));
+        }
+
+        Ok(&self.tokens[self.current_index + delta])
+    }
+
+    fn print_context(&self) {
+        println!("{:?} - {:?} - {:?}", self.tokens[self.current_index-1], self.read_token(), self.relative_read_token(1));
     }
 }
